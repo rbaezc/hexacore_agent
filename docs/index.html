@@ -418,8 +418,9 @@
           <span>HexaCore Engine Setup</span>
           <span>Bash / Powershell</span>
         </div>
-        <pre><code># 1. Navigate to hexacore_agent directory
-cd C:/Projects/VortexSolutions/hexacore_agent
+        <pre><code># 1. Clone & navigate to your hexacore_agent directory
+git clone https://github.com/rbaezc/hexacore_agent.git
+cd hexacore_agent
 
 # 2. Install dependencies (Node 20+ required)
 npm install
@@ -575,7 +576,7 @@ npm test</code></pre>
   "mcpServers": {
     "hexacore-agent": {
       "command": "npx",
-      "args": ["tsx", "C:/Projects/VortexSolutions/hexacore_agent/src/cli/mcp_launcher.ts"]
+      "args": ["tsx", "<path-to-hexacore_agent>/src/cli/mcp_launcher.ts"]
     }
   }
 }</code></pre>
@@ -646,6 +647,21 @@ npm start orchestrate billing dotnet</code></pre>
         <li><strong style="color: #fff;">Atomic File Operations</strong>: All state modifications write to temporary files first before atomic kernel OS renames, preventing state corruption.</li>
         <li><strong style="color: #fff;">Circuit Breaker & Process Resilience</strong>: All sub-processes operate under automatic circuit breaker protection (CLOSED, OPEN, HALF_OPEN) with aggressive timeouts.</li>
       </ul>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="section-card">
+      <h2 class="section-title">9. Troubleshooting & FAQ</h2>
+      <div class="grid-2">
+        <div class="card-item">
+          <h4>What happens if a test fails during QA?</h4>
+          <p>The QA Autonomous Loop automatically intercepts the error log, passes it to the SmartCodePatcher, applies a surgical fix to the source code, and re-tests in a closed loop.</p>
+        </div>
+        <div class="card-item">
+          <h4>How does State Recovery work after a crash?</h4>
+          <p>The AI client invokes <code>resume_session</code> on start. HexaCore reads <code>.hexagen/state.json</code> and injects a compact summary of facts and completed steps into prompt memory.</p>
+        </div>
+      </div>
     </section>
 
     <footer>

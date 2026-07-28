@@ -9,7 +9,7 @@ Do you need your target HexaGen project running before starting? **No!** HexaCor
 ### The Complete Lifecycle:
 
 1. **Step 1 — One-Time Server Setup**:
-   You build HexaCore Agent only once on your machine (`C:/Projects/VortexSolutions/hexacore_agent`). This prepares the local Model Context Protocol (MCP) server executable.
+   You build HexaCore Agent only once on your machine (`<path-to-hexacore_agent>`). This prepares the local Model Context Protocol (MCP) server executable.
 
 2. **Step 2 — IDE / AI Client Registration**:
    Configure your `mcp.json` pointing to HexaCore Agent. This connects the agent's tools directly to your AI chat interface (Antigravity, Claude Code, Cursor, VS Code).
@@ -30,8 +30,9 @@ Do you need your target HexaGen project running before starting? **No!** HexaCor
 
 ### Installation Commands
 ```bash
-# 1. Navigate to hexacore_agent directory
-cd C:/Projects/VortexSolutions/hexacore_agent
+# 1. Clone & navigate to your hexacore_agent directory
+git clone https://github.com/rbaezc/hexacore_agent.git
+cd hexacore_agent
 
 # 2. Install dependencies
 npm install
@@ -83,7 +84,7 @@ HexaCore Server connects natively via the **Model Context Protocol (MCP)** over 
   "mcpServers": {
     "hexacore-agent": {
       "command": "npx",
-      "args": ["tsx", "C:/Projects/VortexSolutions/hexacore_agent/src/cli/mcp_launcher.ts"]
+      "args": ["tsx", "<path-to-hexacore_agent>/src/cli/mcp_launcher.ts"]
     }
   }
 }
