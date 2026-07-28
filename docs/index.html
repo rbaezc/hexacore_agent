@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HexaCore Agent | Enterprise Manual for HexaGen Suite</title>
+  <meta name="description" content="Official Enterprise Platform & Complete Usage Guide for HexaCore Agent - Supporting the complete 12-variant HexaGen Suite.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --bg-card: rgba(15, 23, 42, 0.75);
+      --accent-cyan: #06b6d4;
+      --accent-purple: #a855f7;
+      --accent-blue: #3b82f6;
+      --accent-emerald: #10b981;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --glow-gradient: linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(168, 85, 247, 0.15));
+      --radius-lg: 16px;
+      --radius-md: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      line-height: 1.6;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.12) 0px, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    .app-container { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: 280px;
+      background: rgba(11, 15, 25, 0.95);
+      backdrop-filter: blur(20px);
+      border-right: 1px solid var(--border-subtle);
+      padding: 2rem 1.5rem;
+      position: fixed;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 100;
+    }
+
+    .brand { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2.5rem; }
+
+    .brand-logo {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      color: white;
+      font-size: 1.2rem;
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+    }
+
+    .brand-text {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #fff, var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-menu { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border-radius: var(--radius-md);
+      transition: all 0.2s ease;
+    }
+
+    .nav-link:hover, .nav-link.active {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .nav-link.active {
+      border-color: rgba(6, 182, 212, 0.4);
+      background: linear-gradient(90deg, rgba(6, 182, 212, 0.1), transparent);
+    }
+
+    .main-content {
+      margin-left: 280px;
+      flex: 1;
+      padding: 3rem 4rem;
+      max-width: 1200px;
+    }
+
+    .hero-banner {
+      background: var(--glow-gradient);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 3rem;
+      margin-bottom: 3rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.35rem 0.85rem;
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      border-radius: 50px;
+      color: var(--accent-cyan);
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .hero-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.75rem;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 1rem;
+      background: linear-gradient(90deg, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-desc {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 750px;
+      margin-bottom: 1.5rem;
+    }
+
+    .version-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--accent-emerald);
+      background: rgba(16, 185, 129, 0.1);
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .section-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem;
+      margin-bottom: 2.5rem;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .section-card:hover { border-color: rgba(255, 255, 255, 0.15); }
+
+    .section-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+    }
+
+    .section-p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      font-size: 1rem;
+    }
+
+    .step-box {
+      background: rgba(30, 41, 59, 0.4);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      position: relative;
+    }
+
+    .step-number {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+    }
+
+    .step-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.5rem;
+    }
+
+    .table-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .search-input {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-subtle);
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.9rem;
+      width: 280px;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .search-input:focus { border-color: var(--accent-cyan); }
+
+    .table-responsive {
+      overflow-x: auto;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+
+    th {
+      background: rgba(30, 41, 59, 0.8);
+      color: var(--text-main);
+      padding: 1rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    td {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); color: var(--text-main); }
+
+    .stack-badge {
+      display: inline-block;
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+
+    .badge-elixir { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .badge-node { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-laravel { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-dotnet { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-rust { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-python { background: rgba(6, 182, 212, 0.15); color: #38bdf8; border: 1px solid rgba(6, 182, 212, 0.3); }
+
+    .code-block {
+      background: #04060a;
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 1.25rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88rem;
+      color: #e2e8f0;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .card-item {
+      background: rgba(30, 41, 59, 0.4);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+    }
+
+    .card-item h4 {
+      font-family: 'Outfit', sans-serif;
+      color: #fff;
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-item p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    footer {
+      text-align: center;
+      padding: 3rem 0;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border-subtle);
+      margin-top: 4rem;
+    }
+
+    @media (max-width: 992px) {
+      .sidebar { display: none; }
+      .main-content { margin-left: 0; padding: 2rem 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">H</div>
+      <div class="brand-text">HexaCore Agent</div>
+    </div>
+    <ul class="nav-menu">
+      <li><a href="#workflow" class="nav-link active">1. End-to-End Workflow</a></li>
+      <li><a href="#quickstart" class="nav-link">2. One-Time Core Setup</a></li>
+      <li><a href="#overview" class="nav-link">3. Architecture Overview</a></li>
+      <li><a href="#matrix" class="nav-link">4. HexaGen 12-Stack Matrix</a></li>
+      <li><a href="#mcp" class="nav-link">5. MCP Integration Guide</a></li>
+      <li><a href="#tools" class="nav-link">6. Tool Catalog Reference</a></li>
+      <li><a href="#cli" class="nav-link">7. Interactive CLI Workbench</a></li>
+      <li><a href="#governance" class="nav-link">8. Governance & Security</a></li>
+    </ul>
+  </aside>
+
+  <main class="main-content">
+    <section class="hero-banner">
+      <div class="hero-badge">Principal Platform Architecture</div>
+      <h1 class="hero-title">HexaCore Agent Platform</h1>
+      <p class="hero-desc">Complete Official Operating Manual & End-to-End Workflow Guide for the 12-variant HexaGen Suite. Local RAG-governed, event-orchestrated agentic engineering engine.</p>
+      <div style="display: flex; gap: 1rem; align-items: center;">
+        <span class="version-tag">v1.0.0 Enterprise</span>
+        <span style="color: var(--text-muted); font-size: 0.85rem;">Published for GitHub Pages</span>
+      </div>
+    </section>
+
+    <!-- End to End Workflow Section -->
+    <section id="workflow" class="section-card">
+      <h2 class="section-title">1. End-to-End Developer Workflow: How It Works</h2>
+      <p class="section-p">Do you need your target HexaGen project running before starting? <strong>No!</strong> HexaCore Agent acts as an autonomous local engine that interfaces with any project directory (existing or new). Here is the complete lifecycle:</p>
+
+      <div class="step-box">
+        <div class="step-number">Step 1 — One-Time Server Setup</div>
+        <div class="step-title">Install & Build HexaCore Agent Engine</div>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">You build HexaCore Agent only once on your machine. This prepares the local Model Context Protocol (MCP) server executable.</p>
+      </div>
+
+      <div class="step-box">
+        <div class="step-number">Step 2 — IDE / AI Client Registration</div>
+        <div class="step-title">Register MCP Config in Antigravity / Claude / Cursor</div>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Configure your <code>mcp.json</code> pointing to HexaCore Agent. This connects the agent's "hands" directly to your AI chat interface.</p>
+      </div>
+
+      <div class="step-box">
+        <div class="step-number">Step 3 — Open Any HexaGen Project Workspace</div>
+        <div class="step-title">Existing Project OR Greenfield (New) Project</div>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Open your target project folder (e.g., <code>my_rust_backend</code> with <code>Cargo.toml</code> or <code>my_elixir_app</code> with <code>mix.exs</code>). HexaCore automatically senses the <strong>Project Detection File</strong>. If the directory is empty, HexaCore can scaffold the base project for you!</p>
+      </div>
+
+      <div class="step-box">
+        <div class="step-number">Step 4 — Autonomous Execution & QA Loop</div>
+        <div class="step-title">Prompt the Agent to Build, Test & Self-Heal</div>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">When you ask to build a feature (e.g., "Create a payments slice"), HexaCore extracts rules from <code>/docs</code>, generates VSA files (&lt; 250 lines), executes test runners (<code>cargo test</code>, <code>mix test</code>, <code>dotnet test</code>), and auto-fixes failing code in a closed loop.</p>
+      </div>
+    </section>
+
+    <!-- Quick Start Section -->
+    <section id="quickstart" class="section-card">
+      <h2 class="section-title">2. One-Time Core Setup Guide</h2>
+      <p class="section-p">Follow these simple steps to install and build HexaCore Agent on your local machine:</p>
+      
+      <div class="code-block">
+        <div class="code-header">
+          <span>HexaCore Engine Setup</span>
+          <span>Bash / Powershell</span>
+        </div>
+        <pre><code># 1. Navigate to hexacore_agent directory
+cd C:/Projects/VortexSolutions/hexacore_agent
+
+# 2. Install dependencies (Node 20+ required)
+npm install
+
+# 3. Build TypeScript project
+npm run build
+
+# 4. Verify test suite (100% pass)
+npm test</code></pre>
+      </div>
+    </section>
+
+    <!-- Overview Section -->
+    <section id="overview" class="section-card">
+      <h2 class="section-title">3. System Overview & Core Architecture</h2>
+      <p class="section-p">HexaCore Agent operates locally on your machine via the <strong>Model Context Protocol (MCP)</strong>. It enforces Vertical Slice Architecture (VSA) and strict architectural policies across your entire enterprise suite.</p>
+      
+      <div class="grid-2">
+        <div class="card-item">
+          <h4>Vertical Slice Architecture</h4>
+          <p>Features are organized into completely self-contained vertical slices. No monolithic horizontal layering or cross-slice coupling.</p>
+        </div>
+        <div class="card-item">
+          <h4>Embedded Local BM25 RAG</h4>
+          <p>Calculates semantic term density over local technical documentation (/docs) using TF-IDF / BM25 without external API vector dependencies.</p>
+        </div>
+        <div class="card-item">
+          <h4>Circuit Breaker Resilience</h4>
+          <p>Protects system execution from hung processes (dotnet test, mix test, vitest) with automated timeout & health state management.</p>
+        </div>
+        <div class="card-item">
+          <h4>Security Sandbox Guard</h4>
+          <p>Prevents path traversal attacks and blocks unsafe shell commands (rm -rf, format, chmod 777) before execution.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12-Stack Matrix Section -->
+    <section id="matrix" class="section-card">
+      <h2 class="section-title">4. Complete HexaGen 12-Stack Support Matrix</h2>
+      <p class="section-p">The system senses the active workspace technology and dynamically activates stack-specific tool catalogs (Anti-Tool-Fatigue pattern):</p>
+      
+      <div class="table-controls">
+        <input type="text" id="stackSearch" class="search-input" placeholder="Search stack or framework...">
+        <span style="font-size: 0.8rem; color: var(--text-muted);">12 / 12 Variants Active</span>
+      </div>
+
+      <div class="table-responsive">
+        <table id="stackTable">
+          <thead>
+            <tr>
+              <th>HexaGen Variant</th>
+              <th>Stack / Framework</th>
+              <th>Project Detection File</th>
+              <th>Automated Test Runner</th>
+              <th>Scaffold Path Pattern</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>hexagen</strong></td>
+              <td><span class="stack-badge badge-elixir">Elixir / Phoenix</span></td>
+              <td><code>mix.exs</code></td>
+              <td><code>mix test</code></td>
+              <td><code>lib/app/&lt;slice&gt;/...</code></td>
+            </tr>
+            <tr>
+              <td><strong>nodehexagen</strong></td>
+              <td><span class="stack-badge badge-node">Node.js / TypeScript</span></td>
+              <td><code>package.json</code></td>
+              <td><code>npx vitest run</code></td>
+              <td><code>src/features/&lt;slice&gt;/...</code></td>
+            </tr>
+            <tr>
+              <td><strong>laravelhexagen</strong></td>
+              <td><span class="stack-badge badge-laravel">PHP / Laravel</span></td>
+              <td><code>composer.json</code></td>
+              <td><code>php artisan test</code></td>
+              <td><code>app/Actions/&lt;Slice&gt;/...</code></td>
+            </tr>
+            <tr>
+              <td><strong>nethexagen / hexagensharp</strong></td>
+              <td><span class="stack-badge badge-dotnet">.NET / C# (Blazor)</span></td>
+              <td><code>*.csproj</code> / <code>*.sln</code></td>
+              <td><code>dotnet test</code></td>
+              <td><code>Features/&lt;Slice&gt;/...</code></td>
+            </tr>
+            <tr>
+              <td><strong>rusthexagen</strong></td>
+              <td><span class="stack-badge badge-rust">Rust / Axum</span></td>
+              <td><code>Cargo.toml</code></td>
+              <td><code>cargo test</code></td>
+              <td><code>src/slices/&lt;slice&gt;/...</code></td>
+            </tr>
+            <tr>
+              <td><strong>pyhexagen</strong></td>
+              <td><span class="stack-badge badge-python">Python / FastAPI</span></td>
+              <td><code>pyproject.toml</code></td>
+              <td><code>pytest</code></td>
+              <td><code>app/slices/&lt;slice&gt;/...</code></td>
+            </tr>
+            <tr>
+              <td><strong>reacthexagen</strong></td>
+              <td><span class="stack-badge badge-node">React / Vite</span></td>
+              <td><code>package.json</code> (react)</td>
+              <td><code>npm test</code></td>
+              <td><code>src/features/&lt;slice&gt;/...</code></td>
+            </tr>
+            <tr>
+              <td><strong>gohexagen</strong></td>
+              <td><span class="stack-badge badge-python">Go / Golang</span></td>
+              <td><code>go.mod</code></td>
+              <td><code>go test ./...</code></td>
+              <td><code>internal/slices/&lt;slice&gt;/...</code></td>
+            </tr>
+            <tr>
+              <td><strong>flutterhexagen</strong></td>
+              <td><span class="stack-badge badge-dotnet">Flutter / Dart</span></td>
+              <td><code>pubspec.yaml</code></td>
+              <td><code>flutter test</code></td>
+              <td><code>lib/features/&lt;slice&gt;/...</code></td>
+            </tr>
+            <tr>
+              <td><strong>rubyhexagen</strong></td>
+              <td><span class="stack-badge badge-laravel">Ruby / Rails</span></td>
+              <td><code>Gemfile</code></td>
+              <td><code>bundle exec rspec</code></td>
+              <td><code>app/services/&lt;slice&gt;_service.rb</code></td>
+            </tr>
+            <tr>
+              <td><strong>reactnativehexagen</strong></td>
+              <td><span class="stack-badge badge-node">React Native</span></td>
+              <td><code>package.json</code> (rn)</td>
+              <td><code>npm test</code></td>
+              <td><code>src/features/&lt;slice&gt;/...</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- MCP Server Setup Section -->
+    <section id="mcp" class="section-card">
+      <h2 class="section-title">5. MCP Server Integration Guide</h2>
+      <p class="section-p">HexaCore Server connects seamlessly via Standard I/O (stdio) to AI clients (Antigravity, Claude Code, Cursor, VS Code):</p>
+      
+      <div class="code-block">
+        <div class="code-header">
+          <span>mcp.json (Configuration Spec)</span>
+          <span>JSON</span>
+        </div>
+        <pre><code>{
+  "mcpServers": {
+    "hexacore-agent": {
+      "command": "npx",
+      "args": ["tsx", "C:/Projects/VortexSolutions/hexacore_agent/src/cli/mcp_launcher.ts"]
+    }
+  }
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- Tool Catalog Section -->
+    <section id="tools" class="section-card">
+      <h2 class="section-title">6. Exposed MCP Tool Catalog Reference</h2>
+      <p class="section-p">All tools are exposed natively to LLMs under the Model Context Protocol specification:</p>
+      
+      <div class="grid-2">
+        <div class="card-item">
+          <h4><code>resume_session</code></h4>
+          <p>Restores session state atomically from disk (<code>.hexagen/state.json</code>) to recover memory with minimal token usage.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>search_knowledge_base</code></h4>
+          <p>Executes local BM25/TF-IDF semantic scoring over <code>/docs</code> to extract architecture and database rules.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>execute_scaffolding</code></h4>
+          <p>Generates clean vertical slice boilerplate respecting file line limits (&lt; 250 lines) for any of the 12 HexaGen stacks.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>run_quality_assurance</code></h4>
+          <p>Runs environment-native unit test suites under Circuit Breaker protection and parses failures into structured JSON.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>orchestrate_task</code></h4>
+          <p>Executes full autonomous Plan-and-Solve agent pipeline (RAG Rule Injection -&gt; Scaffolding -&gt; QA Verification -&gt; Auto-Healing).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CLI Workbench Section -->
+    <section id="cli" class="section-card">
+      <h2 class="section-title">7. Interactive CLI Workbench Guide</h2>
+      <p class="section-p">Developers can control HexaCore Agent directly from the terminal:</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span>Terminal Commands</span>
+          <span>Bash / Powershell</span>
+        </div>
+        <pre><code># Load transactional state manifest
+npm start state
+
+# Execute local BM25 semantic rule search
+npm start rag "database foreign key constraints"
+
+# Scaffold a Vertical Slice for any HexaGen stack
+npm start scaffold rust payments
+npm start scaffold elixir auth
+npm start scaffold python order
+
+# Run full Plan-and-Solve autonomous pipeline
+npm start orchestrate billing dotnet</code></pre>
+      </div>
+    </section>
+
+    <!-- Governance Section -->
+    <section id="governance" class="section-card">
+      <h2 class="section-title">8. Governance & Security Policies</h2>
+      <ul style="margin-left: 1.5rem; color: var(--text-muted); font-size: 0.95rem; display: flex; flex-direction: column; gap: 0.75rem;">
+        <li><strong style="color: #fff;">Strict Line Count Limit (&lt; 250 Lines)</strong>: No generated or edited code file may exceed 250 lines of code. Enforced by automated Slice Policy Linter.</li>
+        <li><strong style="color: #fff;">Mandatory Foreign Key Constraints</strong>: Relational database migrations must enforce strict FK constraints without exception.</li>
+        <li><strong style="color: #fff;">Atomic File Operations</strong>: All state modifications write to temporary files first before atomic kernel OS renames, preventing state corruption.</li>
+        <li><strong style="color: #fff;">Circuit Breaker & Process Resilience</strong>: All sub-processes operate under automatic circuit breaker protection (CLOSED, OPEN, HALF_OPEN) with aggressive timeouts.</li>
+      </ul>
+    </section>
+
+    <footer>
+      HexaCore Agent &copy; 2026 Vortex Solutions - Published on GitHub Pages
+    </footer>
+  </main>
+</div>
+
+<script>
+  document.getElementById('stackSearch').addEventListener('keyup', function() {
+    const value = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#stackTable tbody tr');
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(value) ? '' : 'none';
+    });
+  });
+</script>
+
+</body>
+</html>

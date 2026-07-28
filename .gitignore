@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build Output
+dist/
+
+# State Manifest & Temporary Data
+.hexagen/state.json
+.hexagen/*.tmp
+
+# Environment & Logs
+*.log
+scratch/
+.env
+.env.local
+
+# System & OS Files
+.DS_Store
+Thumbs.db
+.idea/
+*.suo
+*.user
