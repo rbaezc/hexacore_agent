@@ -5,6 +5,7 @@ import { StateRepository } from '../../src/features/state_management/services/st
 import { RagSearchEngine } from '../../src/features/rag_engine/services/rag_search_engine.js';
 import { ScaffoldingService } from '../../src/features/scaffolding/services/scaffolding_service.js';
 import { QARunnerService } from '../../src/features/quality_assurance/services/qa_runner_service.js';
+import { QAAutonomousLoop } from '../../src/features/quality_assurance/services/qa_autonomous_loop.js';
 import { HexaCoreOrchestrator } from '../../src/features/orchestrator/services/orchestrator_service.js';
 import { IFileSystem } from '../../src/shared/infrastructure/file_system.js';
 import { IProcessRunner } from '../../src/shared/infrastructure/process_runner.js';
@@ -13,6 +14,7 @@ class MockFs implements IFileSystem {
   private store = new Map<string, string>();
   async readFile(p: string) { return this.store.get(p) || ''; }
   async writeFile(p: string, c: string) { this.store.set(p, c); }
+  async writeFileAtomic(p: string, c: string) { this.store.set(p, c); }
   async exists(p: string) { return this.store.has(p); }
   async ensureDir() {}
   async listDirectory() { return []; }
@@ -33,7 +35,8 @@ describe('MCP Server Tool Registry Integration', () => {
     const ragEngine = new RagSearchEngine(fs);
     const scaffoldingService = new ScaffoldingService(fs);
     const qaRunner = new QARunnerService(runner);
-    const orchestrator = new HexaCoreOrchestrator(stateRepo, ragEngine, scaffoldingService, qaRunner);
+    const qaLoop = new QAAutonomousLoop(qaRunner);
+    const orchestrator = new HexaCoreOrchestrator(stateRepo, ragEngine, scaffoldingService, qaLoop);
 
     const registry: ToolRegistry = createToolRegistry(stateRepo, ragEngine, scaffoldingService, qaRunner, orchestrator);
 

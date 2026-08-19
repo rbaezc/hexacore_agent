@@ -9,6 +9,7 @@ class MockFs implements IFileSystem {
   }
   async readFile(p: string) { return this.files.get(p) || ''; }
   async writeFile(p: string, c: string) { this.files.set(p, c); }
+  async writeFileAtomic(p: string, c: string) { this.files.set(p, c); }
   async exists(p: string) { return this.files.has(p); }
   async ensureDir() {}
   async listDirectory() { return Array.from(this.files.keys()); }

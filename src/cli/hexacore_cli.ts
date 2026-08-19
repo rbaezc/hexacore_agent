@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+import * as path from 'node:path';
 import { NodeFileSystem } from '../shared/infrastructure/file_system.js';
 import { NodeProcessRunner } from '../shared/infrastructure/process_runner.js';
 import { ResilientProcessRunner } from '../shared/infrastructure/circuit_breaker.js';
@@ -5,23 +7,31 @@ import { StateRepository } from '../features/state_management/services/state_rep
 import { RagSearchEngine } from '../features/rag_engine/services/rag_search_engine.js';
 import { ScaffoldingService } from '../features/scaffolding/services/scaffolding_service.js';
 import { QARunnerService } from '../features/quality_assurance/services/qa_runner_service.js';
+import { QAAutonomousLoop } from '../features/quality_assurance/services/qa_autonomous_loop.js';
+import { SmartCodePatcher } from '../features/quality_assurance/services/ast_code_patcher.js';
 import { HexaCoreOrchestrator } from '../features/orchestrator/services/orchestrator_service.js';
+import { TelemetryLogWriter } from '../shared/infrastructure/telemetry_log_writer.js';
+import { getPackageVersion } from '../shared/infrastructure/package_info.js';
 
 export async function runHexaCoreCLI(args: string[]): Promise<void> {
   const fileSystem = new NodeFileSystem();
   const innerRunner = new NodeProcessRunner();
   const processRunner = new ResilientProcessRunner(innerRunner);
 
+  new TelemetryLogWriter(fileSystem).start();
+
   const stateRepo = new StateRepository(fileSystem);
   const ragEngine = new RagSearchEngine(fileSystem);
   const scaffoldingService = new ScaffoldingService(fileSystem);
   const qaRunner = new QARunnerService(processRunner);
-  const orchestrator = new HexaCoreOrchestrator(stateRepo, ragEngine, scaffoldingService, qaRunner);
+  const qaLoop = new QAAutonomousLoop(qaRunner);
+  const patcher = new SmartCodePatcher(fileSystem);
+  const orchestrator = new HexaCoreOrchestrator(stateRepo, ragEngine, scaffoldingService, qaLoop, patcher);
 
   const command = args[0] || 'help';
 
   console.log('==================================================');
-  console.log('   HexaCore Agent Enterprise CLI (v1.0.0)');
+  console.log(`   HexaCore Agent Enterprise CLI (v${getPackageVersion()})`);
   console.log('==================================================');
 
   switch (command) {
@@ -65,7 +75,11 @@ export async function runHexaCoreCLI(args: string[]): Promise<void> {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Compares resolved absolute paths (not raw strings) so this matches regardless of
+// relative-vs-absolute argv, drive-letter casing, or path separators on Windows.
+const isMainModule = Boolean(process.argv[1]) && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
   runHexaCoreCLI(process.argv.slice(2)).catch((err) => {
     console.error('CLI Error:', err);
     process.exit(1);

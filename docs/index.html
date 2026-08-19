@@ -465,8 +465,10 @@ npm test</code></pre>
       
       <div class="table-controls">
         <input type="text" id="stackSearch" class="search-input" placeholder="Search stack or framework...">
-        <span style="font-size: 0.8rem; color: var(--text-muted);">12 / 12 Variants Active</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">11 / 11 Variants Active</span>
       </div>
+
+      <p style="font-size: 0.85rem; color: var(--text-muted);">Each stack scaffolds a full 4-layer slice by default under the path shown: domain (entity/schema), application (handler/service), infrastructure (repository), and presentation (controller/route/widget) — wired together with real dependency injection. Pass <code>layer</code> to <code>execute_scaffolding</code> to generate only one of them.</p>
 
       <div class="table-responsive">
         <table id="stackTable">
@@ -548,7 +550,7 @@ npm test</code></pre>
               <td><span class="stack-badge badge-laravel">Ruby / Rails</span></td>
               <td><code>Gemfile</code></td>
               <td><code>bundle exec rspec</code></td>
-              <td><code>app/services/&lt;slice&gt;_service.rb</code></td>
+              <td><code>app/{domain,services,repositories,controllers}/...</code></td>
             </tr>
             <tr>
               <td><strong>reactnativehexagen</strong></td>
@@ -599,7 +601,7 @@ npm test</code></pre>
         </div>
         <div class="card-item">
           <h4><code>execute_scaffolding</code></h4>
-          <p>Generates clean vertical slice boilerplate respecting file line limits (&lt; 250 lines) for any of the 12 HexaGen stacks.</p>
+          <p>Generates a complete 4-layer vertical slice (domain, application, infrastructure, presentation) wired with real dependency injection, respecting file line limits (&lt; 250 lines), for any of the 11 HexaGen stacks.</p>
         </div>
         <div class="card-item">
           <h4><code>run_quality_assurance</code></h4>

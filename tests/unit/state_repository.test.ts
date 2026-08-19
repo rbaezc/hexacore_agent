@@ -15,6 +15,10 @@ class MockFileSystem implements IFileSystem {
     this.files.set(filePath, content);
   }
 
+  async writeFileAtomic(filePath: string, content: string): Promise<void> {
+    this.files.set(filePath, content);
+  }
+
   async exists(filePath: string): Promise<boolean> {
     return this.files.has(filePath);
   }

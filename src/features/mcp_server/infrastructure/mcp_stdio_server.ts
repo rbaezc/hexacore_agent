@@ -9,12 +9,13 @@ export class HexaCoreMcpServer {
 
   constructor(
     private readonly toolRegistry: ToolRegistry,
-    private readonly stackDetector: StackDetector
+    private readonly stackDetector: StackDetector,
+    version: string
   ) {
     this.server = new Server(
       {
         name: 'HexaCore-Server',
-        version: '1.0.0',
+        version,
       },
       {
         capabilities: {

@@ -13,6 +13,10 @@ class InMemoryFileSystem implements IFileSystem {
     this.writtenFiles.set(filePath, content);
   }
 
+  async writeFileAtomic(filePath: string, content: string): Promise<void> {
+    this.writtenFiles.set(filePath, content);
+  }
+
   async exists(filePath: string): Promise<boolean> {
     return this.writtenFiles.has(filePath);
   }
@@ -24,7 +28,7 @@ class InMemoryFileSystem implements IFileSystem {
 }
 
 describe('ScaffoldingService', () => {
-  it('should scaffold Node.js vertical slice correctly', async () => {
+  it('should scaffold a full 4-layer Node.js vertical slice correctly', async () => {
     const fs = new InMemoryFileSystem();
     const service = new ScaffoldingService(fs);
 
@@ -36,12 +40,18 @@ describe('ScaffoldingService', () => {
 
     expect(res.isSuccess).toBe(true);
     if (res.isSuccess) {
-      expect(res.value.createdFiles).toHaveLength(2);
-      expect(fs.writtenFiles.size).toBe(2);
+      expect(res.value.createdFiles).toHaveLength(4);
+      expect(fs.writtenFiles.size).toBe(4);
+
+      const handlerPath = res.value.createdFiles.find((f) => f.includes('orders_handler.ts'));
+      expect(handlerPath).toBeDefined();
+      const handler = await fs.readFile(handlerPath!);
+      expect(handler).toContain('OrdersRepository');
+      expect(handler).toContain('this.repository.save(entity)');
     }
   });
 
-  it('should scaffold .NET C# vertical slice correctly', async () => {
+  it('should scaffold a full 4-layer .NET C# vertical slice correctly', async () => {
     const fs = new InMemoryFileSystem();
     const service = new ScaffoldingService(fs);
 
@@ -53,7 +63,25 @@ describe('ScaffoldingService', () => {
 
     expect(res.isSuccess).toBe(true);
     if (res.isSuccess) {
+      expect(res.value.createdFiles).toHaveLength(4);
+    }
+  });
+
+  it('should scaffold only the requested layer when one is specified', async () => {
+    const fs = new InMemoryFileSystem();
+    const service = new ScaffoldingService(fs);
+
+    const res = await service.executeScaffolding({
+      stack: 'python',
+      sliceName: 'payment',
+      layer: 'domain',
+      targetDir: '/project',
+    });
+
+    expect(res.isSuccess).toBe(true);
+    if (res.isSuccess) {
       expect(res.value.createdFiles).toHaveLength(1);
+      expect(res.value.createdFiles[0]).toContain('domain.py');
     }
   });
 });

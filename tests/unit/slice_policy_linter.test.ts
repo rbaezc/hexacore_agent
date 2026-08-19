@@ -10,6 +10,7 @@ class MockFs implements IFileSystem {
     return 'const clean = true;';
   }
   async writeFile() {}
+  async writeFileAtomic() {}
   async exists() { return true; }
   async ensureDir() {}
   async listDirectory() {

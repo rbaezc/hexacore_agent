@@ -1,5 +1,6 @@
 import { IFileSystem } from '../../../shared/infrastructure/file_system.js';
 import { Result, ok, fail } from '../../../shared/domain/result.js';
+import { GeneratedFile } from '../domain/scaffold_types.js';
 
 export interface PolicyLintViolation {
   filePath: string;
@@ -9,6 +10,33 @@ export interface PolicyLintViolation {
 
 export class SlicePolicyLinter {
   constructor(private readonly fileSystem: IFileSystem) {}
+
+  /** Lints freshly generated (not yet written) files, regardless of stack/extension. */
+  static lintGeneratedFiles(files: GeneratedFile[]): PolicyLintViolation[] {
+    const violations: PolicyLintViolation[] = [];
+
+    for (const file of files) {
+      const lineCount = file.content.split(/\r?\n/).length;
+
+      if (lineCount > 250) {
+        violations.push({
+          filePath: file.path,
+          rule: 'MAX_LINE_COUNT_EXCEEDED',
+          message: `File has ${lineCount} lines, exceeding strict limit of 250 lines.`,
+        });
+      }
+
+      if (file.content.includes('../../../features/')) {
+        violations.push({
+          filePath: file.path,
+          rule: 'HORIZONTAL_SLICE_COUPLING',
+          message: 'Direct cross-slice horizontal import detected violating VSA rules.',
+        });
+      }
+    }
+
+    return violations;
+  }
 
   async lintSlice(sliceDir: string): Promise<Result<PolicyLintViolation[], Error>> {
     try {

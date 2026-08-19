@@ -8,8 +8,8 @@ export class QARunnerService {
 
   async runQA(options: QARunnerOptions): Promise<Result<QAResult, Error>> {
     try {
-      const command = this.getCommandForStack(options.stack, options.scope);
-      const execution = await this.processRunner.runCommand(command, options.cwd);
+      const { cmd, args } = this.getCommandForStack(options.stack, options.scope);
+      const execution = await this.processRunner.runCommand(cmd, args, options.cwd, options.stack);
       const failures = this.parseFailures(options.stack, execution.stdout, execution.stderr);
       const passed = execution.success && failures.length === 0;
 
@@ -27,21 +27,26 @@ export class QARunnerService {
     }
   }
 
-  private getCommandForStack(stack: SupportedStack, scope?: string): string {
-    const s = scope ? ` ${scope}` : '';
+  /**
+   * Returns a base executable plus a discrete argv array (never a shell string): scope
+   * tokens land as literal args to the test runner, so shell metacharacters in `scope`
+   * have no special meaning — there is no shell to interpret them.
+   */
+  private getCommandForStack(stack: SupportedStack, scope?: string): { cmd: string; args: string[] } {
+    const scopeArgs = scope ? scope.trim().split(/\s+/).filter(Boolean) : [];
     switch (stack) {
-      case 'elixir': return `mix test${s}`;
-      case 'dotnet': return `dotnet test${s}`;
-      case 'node': return `npx vitest run${s}`;
-      case 'laravel': return `php artisan test${s}`;
-      case 'rust': return `cargo test${s}`;
-      case 'python': return `pytest${s}`;
-      case 'go': return `go test ./...${s}`;
-      case 'flutter': return `flutter test${s}`;
-      case 'ruby': return `bundle exec rspec${s}`;
+      case 'elixir': return { cmd: 'mix', args: ['test', ...scopeArgs] };
+      case 'dotnet': return { cmd: 'dotnet', args: ['test', ...scopeArgs] };
+      case 'node': return { cmd: 'npx', args: ['vitest', 'run', ...scopeArgs] };
+      case 'laravel': return { cmd: 'php', args: ['artisan', 'test', ...scopeArgs] };
+      case 'rust': return { cmd: 'cargo', args: ['test', ...scopeArgs] };
+      case 'python': return { cmd: 'pytest', args: [...scopeArgs] };
+      case 'go': return { cmd: 'go', args: ['test', './...', ...scopeArgs] };
+      case 'flutter': return { cmd: 'flutter', args: ['test', ...scopeArgs] };
+      case 'ruby': return { cmd: 'bundle', args: ['exec', 'rspec', ...scopeArgs] };
       case 'react':
-      case 'reactnative': return `npm test${s}`;
-      default: return `npm test${s}`;
+      case 'reactnative': return { cmd: 'npm', args: ['test', ...scopeArgs] };
+      default: return { cmd: 'npm', args: ['test', ...scopeArgs] };
     }
   }
 
@@ -51,9 +56,14 @@ export class QARunnerService {
     if (combined.includes('FAIL') || combined.includes('Failed') || combined.includes('error:')) {
       const lines = combined.split('\n').filter((l) => l.includes('FAIL') || l.includes('Error') || l.includes('AssertionError'));
       for (const line of lines.slice(0, 5)) {
-        failures.push({ errorMessage: line.trim(), rawOutput: combined });
+        failures.push({ file: this.extractFilePath(line), errorMessage: line.trim(), rawOutput: combined });
       }
     }
     return failures;
+  }
+
+  private extractFilePath(line: string): string | undefined {
+    const match = line.match(/[.\w/\\-]+\.(ts|tsx|js|jsx|py|rs|go|rb|exs?|cs|dart|php)\b/);
+    return match ? match[0] : undefined;
   }
 }

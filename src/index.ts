@@ -8,7 +8,6 @@ export * from './shared/infrastructure/telemetry.js';
 export * from './features/state_management/domain/state_types.js';
 export * from './features/state_management/domain/state_validator.js';
 export * from './features/state_management/services/state_repository.js';
-export * from './features/state_management/services/atomic_file_writer.js';
 export * from './features/rag_engine/domain/rag_types.js';
 export * from './features/rag_engine/services/rag_search_engine.js';
 export * from './features/rag_engine/services/hybrid_rag_engine.js';

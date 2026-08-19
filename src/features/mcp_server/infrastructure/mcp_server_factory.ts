@@ -40,12 +40,17 @@ export function createToolRegistry(
 
   registry.registerTool({
     name: 'execute_scaffolding',
-    description: 'Creates Vertical Slice structure adhering to architecture policies',
+    description: 'Creates Vertical Slice structure (domain, application, infrastructure, presentation) adhering to architecture policies',
     inputSchema: {
       type: 'object',
       properties: {
         stack: { type: 'string', enum: ['elixir', 'dotnet', 'node', 'laravel', 'rust', 'python', 'react', 'go', 'flutter', 'ruby', 'reactnative'] },
         sliceName: { type: 'string', description: 'Vertical slice name' },
+        layer: {
+          type: 'string',
+          enum: ['domain', 'application', 'infrastructure', 'presentation', 'full'],
+          description: 'Generate a single VSA layer, or the full slice (default: full)',
+        },
       },
       required: ['stack', 'sliceName'],
     },

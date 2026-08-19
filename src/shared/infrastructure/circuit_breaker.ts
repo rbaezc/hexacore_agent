@@ -6,18 +6,29 @@ export interface CircuitBreakerOptions {
   resetTimeoutMs: number;
 }
 
+interface BreakerState {
+  failureCount: number;
+  state: 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+  lastStateChange: number;
+}
+
+const DEFAULT_BUCKET = 'default';
+
 export class ResilientProcessRunner implements IProcessRunner {
-  private failureCount = 0;
-  private state: 'CLOSED' | 'OPEN' | 'HALF_OPEN' = 'CLOSED';
-  private lastStateChange = Date.now();
+  private readonly breakers = new Map<string, BreakerState>();
 
   constructor(
     private readonly innerRunner: IProcessRunner,
     private readonly options: CircuitBreakerOptions = { failureThreshold: 3, resetTimeoutMs: 10000 }
   ) {}
 
-  async runCommand(command: string, cwd?: string): Promise<ProcessExecutionResult> {
-    const securityCheck = SecuritySandboxGuard.validateCommand(command);
+  async runCommand(
+    command: string,
+    args: string[] = [],
+    cwd?: string,
+    bucketKey: string = DEFAULT_BUCKET
+  ): Promise<ProcessExecutionResult> {
+    const securityCheck = SecuritySandboxGuard.validateInvocation(command, args);
     if (securityCheck.isFailure) {
       return {
         stdout: '',
@@ -27,32 +38,43 @@ export class ResilientProcessRunner implements IProcessRunner {
       };
     }
 
-    if (this.state === 'OPEN') {
-      if (Date.now() - this.lastStateChange > this.options.resetTimeoutMs) {
-        this.state = 'HALF_OPEN';
+    const breaker = this.getBreaker(bucketKey);
+
+    if (breaker.state === 'OPEN') {
+      if (Date.now() - breaker.lastStateChange > this.options.resetTimeoutMs) {
+        breaker.state = 'HALF_OPEN';
       } else {
         return {
           stdout: '',
-          stderr: 'Circuit breaker is OPEN. Command execution rejected for system stability.',
+          stderr: `Circuit breaker is OPEN for '${bucketKey}'. Command execution rejected for system stability.`,
           exitCode: 999,
           success: false,
         };
       }
     }
 
-    const result = await this.innerRunner.runCommand(command, cwd);
+    const result = await this.innerRunner.runCommand(command, args, cwd);
 
     if (!result.success) {
-      this.failureCount++;
-      if (this.failureCount >= this.options.failureThreshold) {
-        this.state = 'OPEN';
-        this.lastStateChange = Date.now();
+      breaker.failureCount++;
+      if (breaker.failureCount >= this.options.failureThreshold) {
+        breaker.state = 'OPEN';
+        breaker.lastStateChange = Date.now();
       }
     } else {
-      this.failureCount = 0;
-      this.state = 'CLOSED';
+      breaker.failureCount = 0;
+      breaker.state = 'CLOSED';
     }
 
     return result;
+  }
+
+  private getBreaker(key: string): BreakerState {
+    let breaker = this.breakers.get(key);
+    if (!breaker) {
+      breaker = { failureCount: 0, state: 'CLOSED', lastStateChange: Date.now() };
+      this.breakers.set(key, breaker);
+    }
+    return breaker;
   }
 }

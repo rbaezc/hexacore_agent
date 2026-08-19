@@ -45,4 +45,26 @@ describe('QARunnerService', () => {
       expect(result.value.failures.length).toBeGreaterThan(0);
     }
   });
+
+  it('should pass a malicious scope as literal argv tokens, never as a shell string', async () => {
+    let capturedCommand = '';
+    let capturedArgs: string[] = [];
+    let capturedBucket: string | undefined;
+
+    const spyRunner: IProcessRunner = {
+      async runCommand(command, args = [], _cwd, bucketKey) {
+        capturedCommand = command;
+        capturedArgs = args;
+        capturedBucket = bucketKey;
+        return { stdout: 'PASS', stderr: '', exitCode: 0, success: true };
+      },
+    };
+
+    const runner = new QARunnerService(spyRunner);
+    await runner.runQA({ stack: 'node', scope: '; rm -rf / && echo pwned' });
+
+    expect(capturedCommand).toBe('npx');
+    expect(capturedArgs).toEqual(['vitest', 'run', ';', 'rm', '-rf', '/', '&&', 'echo', 'pwned']);
+    expect(capturedBucket).toBe('node');
+  });
 });

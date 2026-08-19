@@ -13,21 +13,20 @@ export class RagSearchEngine {
   async searchRules(query: string, topK: number = 3): Promise<Result<SearchResult, Error>> {
     try {
       const docs = await this.loadKnowledgeBase();
+      const indexed = docs.flatMap((doc) => doc.sections.map((section) => ({ doc, section })));
+      const stats = HybridRagScorer.buildCorpusStats(indexed.map((i) => i.section));
+      const queryTokens = HybridRagScorer.tokenize(query);
+
       const snippets: RuleSnippet[] = [];
-
-      const queryTokens = this.tokenize(query);
-
-      for (const doc of docs) {
-        for (const section of doc.sections) {
-          const score = this.calculateRelevance(queryTokens, doc, section.heading, section.content);
-          if (score > 0) {
-            snippets.push({
-              sourceDoc: doc.filePath,
-              heading: section.heading,
-              content: section.content,
-              score,
-            });
-          }
+      for (const { doc, section } of indexed) {
+        const score = HybridRagScorer.calculateScore(queryTokens, section.heading, section.content, stats);
+        if (score > 0) {
+          snippets.push({
+            sourceDoc: doc.filePath,
+            heading: section.heading,
+            content: section.content,
+            score,
+          });
         }
       }
 
@@ -86,17 +85,5 @@ export class RagSearchEngine {
     }
 
     return sections;
-  }
-
-  private tokenize(text: string): string[] {
-    return text
-      .toLowerCase()
-      .replace(/[^\w\s]/g, '')
-      .split(/\s+/)
-      .filter((t) => t.length > 2);
-  }
-
-  private calculateRelevance(tokens: string[], doc: KnowledgeDoc, heading: string, content: string): number {
-    return HybridRagScorer.calculateScore(tokens, doc, heading, content);
   }
 }

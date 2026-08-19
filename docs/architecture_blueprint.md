@@ -1,6 +1,6 @@
 # HexaCore Agent: Enterprise Architecture Blueprint
 
-HexaCore Agent is a local, event-orchestrated agentic engineering system governed by strict architecture policies. Its primary goal is to automate the full development lifecycle across all 12 variants of your corporate HexaGen suite (Node.js, .NET/C#, Elixir/Phoenix, Laravel, Rust, Python, Go, Flutter, Ruby, React Native).
+HexaCore Agent is a local, event-orchestrated agentic engineering system governed by strict architecture policies. Its primary goal is to automate the full development lifecycle across all 11 variants of your corporate HexaGen suite (Node.js, .NET/C#, Elixir/Phoenix, Laravel, Rust, Python, Go, Flutter, Ruby, React Native).
 
 ```
                     [ USER INTERFACE ]
@@ -44,7 +44,7 @@ Prevents AI from generating non-compliant code by maintaining a local retrieval-
 ## 3. Autonomous Orchestration (AI Agents & QA Loop)
 Coordinates Plan-and-Solve strategies, file scaffolding, automated QA execution, and smart code self-healing.
 - **HexaCore Orchestrator**: Decomposes high-level requirements into atomic steps.
-- **Scaffolding Agent**: Generates boilerplate adhering to strict line count limits (< 250 lines).
+- **Scaffolding Agent**: Generates a full 4-layer Vertical Slice per feature (domain, application, infrastructure, presentation), each layer wired to the next via real dependency injection, adhering to strict line count limits (< 250 lines).
 - **QA Autonomous Agent Loop**: Executes test runners, parses failure logs, applies automated patches, and re-tests in a closed loop.
 
 ## 4. Resilience & Persistent State Management

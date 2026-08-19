@@ -50,27 +50,29 @@ npm test
 
 HexaCore Agent is a local, event-orchestrated agentic engineering system operating at Principal Platform Architecture level, governed by strict architectural policies.
 
-It automates the complete software development lifecycle (Plan-and-Solve, Scaffolding, Rule RAG, Autonomous QA, and Code Self-Healing) across all **12 variants of the corporate HexaGen suite**.
+It automates the complete software development lifecycle (Plan-and-Solve, Scaffolding, Rule RAG, Autonomous QA, and Code Self-Healing) across all **11 variants of the corporate HexaGen suite**.
 
 ---
 
-## 4. Complete HexaGen Suite Support (12 Stacks)
+## 4. Complete HexaGen Suite Support (11 Stacks)
 
 HexaCore Agent automatically detects the active technology stack in the workspace root and dynamically exposes only the required tool catalog (Anti-Tool-Fatigue pattern):
 
-| HexaGen Variant | Technology Stack | Project Detection File | Automated Test Runner | Generated Scaffold Structure |
+Each stack scaffolds a full 4-layer slice by default: **domain** (entity/schema), **application** (handler/service, injected with the repository), **infrastructure** (repository), and **presentation** (controller/route/widget, injected with the handler). Pass `layer` to `execute_scaffolding` to generate only one of them.
+
+| HexaGen Variant | Technology Stack | Project Detection File | Automated Test Runner | Generated Slice Root |
 | :--- | :--- | :--- | :--- | :--- |
-| **hexagen** | Elixir / Phoenix | `mix.exs` | `mix test` | `lib/app/<slice>/<slice>_context.ex` |
-| **nodehexagen** | Node.js / TypeScript | `package.json` | `npx vitest run` | `src/features/<slice>/...` |
-| **laravelhexagen** | PHP / Laravel | `composer.json` | `php artisan test` | `app/Actions/<Slice>/<Slice>Action.php` |
-| **nethexagen / hexagensharp** | .NET / C# (Blazor) | `*.csproj` / `*.sln` | `dotnet test` | `Features/<Slice>/<Slice>Command.cs` |
-| **rusthexagen** | Rust / Axum | `Cargo.toml` | `cargo test` | `src/slices/<slice>/mod.rs` |
-| **pyhexagen** | Python / FastAPI | `pyproject.toml` | `pytest` | `app/slices/<slice>/service.py` |
-| **reacthexagen** | React / Vite | `package.json` (react) | `npm test` | `src/features/<slice>/...` |
-| **gohexagen** | Go / Golang | `go.mod` | `go test ./...` | `internal/slices/<slice>/<slice>.go` |
-| **flutterhexagen** | Flutter / Dart | `pubspec.yaml` | `flutter test` | `lib/features/<slice>/...` |
-| **rubyhexagen** | Ruby / Rails | `Gemfile` | `bundle exec rspec` | `app/services/<slice>_service.rb` |
-| **reactnativehexagen** | React Native / Mobile | `package.json` (rn) | `npm test` | `src/features/<slice>/...` |
+| **hexagen** | Elixir / Phoenix | `mix.exs` | `mix test` | `lib/app/<slice>/` (+ `lib/app_web/controllers/<slice>_controller.ex`) |
+| **nodehexagen** | Node.js / TypeScript | `package.json` | `npx vitest run` | `src/features/<slice>/{domain,application,infrastructure,presentation}/` |
+| **laravelhexagen** | PHP / Laravel | `composer.json` | `php artisan test` | `app/DataTransferObjects/`, `app/Actions/<Slice>/`, `app/Repositories/`, `app/Http/Controllers/` |
+| **nethexagen / hexagensharp** | .NET / C# (Blazor) | `*.csproj` / `*.sln` | `dotnet test` | `Features/<Slice>/{<Slice>Entity,<Slice>Handler,<Slice>Repository,<Slice>Controller}.cs` |
+| **rusthexagen** | Rust / Axum | `Cargo.toml` | `cargo test` | `src/slices/<slice>/{domain,service,repository,handler,mod}.rs` |
+| **pyhexagen** | Python / FastAPI | `pyproject.toml` | `pytest` | `app/slices/<slice>/{domain,service,repository,router}.py` |
+| **reacthexagen** | React / Vite | `package.json` (react) | `npm test` | `src/features/<slice>/{domain,application,infrastructure,presentation}/` |
+| **gohexagen** | Go / Golang | `go.mod` | `go test ./...` | `internal/slices/<slice>/{domain,service,repository,handler}.go` |
+| **flutterhexagen** | Flutter / Dart | `pubspec.yaml` | `flutter test` | `lib/features/<slice>/{domain,application,infrastructure,presentation}/` |
+| **rubyhexagen** | Ruby / Rails | `Gemfile` | `bundle exec rspec` | `app/domain/`, `app/services/`, `app/repositories/`, `app/controllers/` |
+| **reactnativehexagen** | React Native / Mobile | `package.json` (rn) | `npm test` | `src/features/<slice>/{domain,application,infrastructure,presentation}/` |
 
 ---
 
@@ -102,11 +104,11 @@ HexaCore Server connects natively via the **Model Context Protocol (MCP)** over 
 - **Description**: Executes local BM25/TF-IDF semantic scoring over `/docs` and extracts exact architecture rules.
 
 ### 3. `execute_scaffolding`
-- **Parameters**: `stack` (enum of 12 stacks), `sliceName` (string).
-- **Description**: Generates Vertical Slice boilerplate respecting file line limits (< 250 lines) and cross-slice decoupling.
+- **Parameters**: `stack` (enum of 11 stacks), `sliceName` (string), `layer` (optional: `domain` | `application` | `infrastructure` | `presentation` | `full`, default `full`).
+- **Description**: Generates a complete Vertical Slice — domain entity, application handler/service, infrastructure repository, and presentation controller/route — wired together with real dependency injection (handler depends on repository, presentation depends on handler) and idiomatic per-stack patterns (CQRS for .NET, Actions for Laravel, Contexts for Elixir, hooks for React, etc.), respecting file line limits (< 250 lines) and cross-slice decoupling. Pass `layer` to generate a single layer instead of the full slice.
 
 ### 4. `run_quality_assurance`
-- **Parameters**: `stack` (enum of 12 stacks), `scope` (optional).
+- **Parameters**: `stack` (enum of 11 stacks), `scope` (optional).
 - **Description**: Launches environment-native unit test suites under Circuit Breaker protection and parses failures into structured JSON.
 
 ### 5. `orchestrate_task`

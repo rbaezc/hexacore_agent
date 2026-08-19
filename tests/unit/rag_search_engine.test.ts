@@ -11,6 +11,7 @@ class MockDocsFileSystem implements IFileSystem {
   }
 
   async writeFile(): Promise<void> {}
+  async writeFileAtomic(): Promise<void> {}
   async exists(): Promise<boolean> { return true; }
   async ensureDir(): Promise<void> {}
 
