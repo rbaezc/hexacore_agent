@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-08-19
+
+### Security
+
+- Resolved all 8 `npm audit` findings (4 moderate, 3 high, 1 critical), all in transitive dev/tooling dependencies (`nanoid`, `fast-uri`, `hono` via non-breaking updates; `esbuild`/`vite` via a `vitest` 2.x → 4.x major bump). `npm audit` now reports 0 vulnerabilities. Full test suite (17 files, 35 tests) verified green on `vitest@4.1.11`.
+
 ## [2.0.0] - 2026-08-18
 
 ### Security
