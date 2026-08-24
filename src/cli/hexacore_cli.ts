@@ -13,6 +13,17 @@ import { HexaCoreOrchestrator } from '../features/orchestrator/services/orchestr
 import { TelemetryLogWriter } from '../shared/infrastructure/telemetry_log_writer.js';
 import { getPackageVersion } from '../shared/infrastructure/package_info.js';
 
+/** Parses trailing `--flag value` pairs, e.g. `--targetDir /foo --layer domain`. */
+function parseFlags(rest: string[]): { targetDir?: string; layer?: string } {
+  const flags: Record<string, string> = {};
+  for (let i = 0; i < rest.length; i += 2) {
+    const key = rest[i]?.replace(/^--/, '');
+    const value = rest[i + 1];
+    if (key && value) flags[key] = value;
+  }
+  return flags;
+}
+
 export async function runHexaCoreCLI(args: string[]): Promise<void> {
   const fileSystem = new NodeFileSystem();
   const innerRunner = new NodeProcessRunner();
@@ -49,7 +60,13 @@ export async function runHexaCoreCLI(args: string[]): Promise<void> {
     case 'scaffold': {
       const stack = (args[1] as any) || 'node';
       const sliceName = args[2] || 'payment';
-      const scaffold = await scaffoldingService.executeScaffolding({ stack, sliceName });
+      const flags = parseFlags(args.slice(3));
+      const scaffold = await scaffoldingService.executeScaffolding({
+        stack,
+        sliceName,
+        targetDir: flags.targetDir,
+        layer: flags.layer as any,
+      });
       console.log(JSON.stringify(scaffold, null, 2));
       break;
     }
@@ -69,7 +86,7 @@ export async function runHexaCoreCLI(args: string[]): Promise<void> {
       console.log('Command Usage:');
       console.log('  npm start state                    -> Displays .hexagen/state.json manifest');
       console.log('  npm start rag <query>             -> Performs local BM25 semantic rule search');
-      console.log('  npm start scaffold <stack> <name> -> Scaffolds a new Vertical Slice');
+      console.log('  npm start scaffold <stack> <name> [--targetDir <path>] [--layer <layer>] -> Scaffolds a new Vertical Slice');
       console.log('  npm start orchestrate <name>      -> Executes full Plan-and-Solve pipeline');
     }
   }
