@@ -1,52 +1,61 @@
-# HexaCore Agent: Enterprise Architecture Blueprint
+# HexaCore Agent: Architecture Blueprint
 
-HexaCore Agent is a local, event-orchestrated agentic engineering system governed by strict architecture policies. Its primary goal is to automate the full development lifecycle across all 11 variants of your corporate HexaGen suite (Node.js, .NET/C#, Elixir/Phoenix, Laravel, Rust, Python, Go, Flutter, Ruby, React Native).
+HexaCore Agent is a local, governed engineering companion for the 11 stacks of the HexaGen suite. An AI client (Claude Code, Cursor, VS Code, Antigravity) plans and writes code; HexaCore supplies the rules, generates compliant slices, verifies with the real toolchains, audits the architecture, keeps every write reversible and remembers context across sessions.
 
 ```
-                    [ USER INTERFACE ]
-          (Terminal CLI / IDE / Claude Code / Antigravity)
-                               │
-                               ▼
-                   ┌──────────────────────┐
-                   │ HexaCore Orchestrator│ ◄───► [ .hexagen/state.json ]
-                   └──────────────────────┘       (State Manifest Persistence)
-                               │
-              ┌────────────────┴────────────────┐
-              ▼                                 ▼
-    ┌──────────────────┐               ┌──────────────────┐
-    │    Local RAG     │               │ HexaCore-Server  │
-    │  (Semantic Search)│               │   (MCP Server)   │
-    └──────────────────┘               └──────────────────┘
-              │                                 │
-              ▼                                 ▼
- ┌─────────────────────────┐       ┌──────────────────────────┐
- │  /docs (Markdown)       │       │ Tooling Catalog          │
- │  - Vertical Slice Rules │       │ - execute_scaffolding    │
- │  - DB Conventions       │       │ - run_quality_assurance  │
- └─────────────────────────┘       └──────────────────────────┘
+              AI client (plans, writes code, answers sampling requests)
+                                 │  MCP over stdio (tools · resources · prompts)
+                                 ▼
+ ┌──────────────────────────────────────────────────────────────────────────┐
+ │ mcp_server: zod-validated tools, isError, structuredContent, progress,   │
+ │             roots → workspace, sampling → LlmClient                      │
+ ├──────────────┬──────────────┬──────────────┬─────────────┬───────────────┤
+ │ orchestrator │ scaffolding  │ quality_     │ architecture│ design        │
+ │ persisted    │ 11 stack     │ assurance    │ coupling,   │ ADRs,         │
+ │ plans        │ generators   │ reporters,   │ layers,     │ OpenAPI       │
+ │              │ + profiles   │ auto-fix     │ file size   │ contracts     │
+ ├──────────────┴──────────────┴──────────────┴─────────────┴───────────────┤
+ │ rag_engine (bundled rules + .hexagen/rules + docs/adr)                   │
+ │ state_management (.hexagen/state.json: plans, ADRs, QA history, handoffs)│
+ ├──────────────────────────────────────────────────────────────────────────┤
+ │ shared kernel: Result, stack types, slice names, policy, workspace,      │
+ │ change journal (checkpoints), sandbox + circuit breaker, file system     │
+ └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 1. Tooling & Protocol Layer (Model Context Protocol - MCP)
-The operational core is exposed natively via the Model Context Protocol (MCP). This enables compatible AI clients to utilize agent capabilities directly inside your local development environment.
-- **HexaCore-Server (MCP)**: A lightweight local server developed in TypeScript/Node.js communicating via standard I/O (stdio).
-- **Semantic Tool Isolation (Anti-Tool-Fatigue)**: The server dynamically exposes only the critical toolset required for the active workspace stack (Elixir, .NET, Node, Laravel, Rust, Python, Go, etc.).
-- **Key Tools**:
-  - `execute_scaffolding(stack, slice_name)`: Creates directory structure and base files respecting Vertical Slice Architecture rules.
-  - `run_quality_assurance(stack, scope)`: Runs environment-native test runners under Circuit Breaker protection and parses errors into structured JSON.
-  - `resume_session()`: Atomically restores state manifest from `.hexagen/state.json`.
-  - `search_knowledge_base(query)`: Executes local BM25/TF-IDF semantic scoring over `/docs`.
+## 1. Protocol Layer (MCP)
+- **Tools** are defined with zod schemas; arguments are validated before any handler runs, and failures come back as `isError: true` with a precise message. Successful results carry `structuredContent`.
+- **Stack-aware catalog**: stack enums in tool schemas are narrowed to the stacks detected in the workspace.
+- **Roots**: the workspace root is taken from the client's MCP roots (or `HEXACORE_WORKSPACE`), so rules, state and checkpoints always refer to the user's project.
+- **Sampling**: when the client supports it, HexaCore asks the client's model for code fixes; it never holds an API key.
+- **Resources and prompts** expose the rule corpus, the session briefing and guided workflows.
 
-## 2. Governance Brain (Local BM25 RAG & Rule Injection)
-Prevents AI from generating non-compliant code by maintaining a local retrieval-augmented generation engine over technical specifications in `/docs`.
-- **Local BM25 Engine**: Ranks document relevance using term frequency and heading hierarchy multipliers without external API dependencies.
-- **Rule Injection**: Dynamically injects matching architectural rules into agent prompts as prioritized context.
+## 2. Governance Brain (RAG)
+- BM25 with corpus-wide IDF over markdown sections, heading boost, parent-heading context.
+- Bilingual analyzer: accent folding, English/Spanish stop words, light stemming and a domain synonym map.
+- Sources ranked project > decisions > bundled, so local conventions override defaults.
 
-## 3. Autonomous Orchestration (AI Agents & QA Loop)
-Coordinates Plan-and-Solve strategies, file scaffolding, automated QA execution, and smart code self-healing.
-- **HexaCore Orchestrator**: Decomposes high-level requirements into atomic steps.
-- **Scaffolding Agent**: Generates a full 4-layer Vertical Slice per feature (domain, application, infrastructure, presentation), each layer wired to the next via real dependency injection, adhering to strict line count limits (< 250 lines).
-- **QA Autonomous Agent Loop**: Executes test runners, parses failure logs, applies automated patches, and re-tests in a closed loop.
+## 3. Scaffolding
+- One generator per stack producing a `SliceBlueprint`: four layers, a composition root, tests and idempotent registrations (e.g. `pub mod x;` in `src/slices/mod.rs`).
+- `ProjectProfileDetector` reads host manifests (csproj, mix.exs, pubspec.yaml, package.json, tsconfig.json) so generated code matches the project.
+- Every file passes the 250-line policy before writing; existing files are never overwritten without consent; all writes go through a checkpoint.
 
-## 4. Resilience & Persistent State Management
-- **State Manifest (`.hexagen/state.json`)**: Tracks project metadata, case facts, and pipeline step ledgers.
-- **Atomic Operations**: Atomic write-to-temp file and OS kernel rename prevents state corruption.
+## 4. Quality Assurance
+- `CheckCatalog` picks the machine-readable invocation per stack and check, with fallbacks (`pytest` → `python -m pytest`).
+- Parsers: Jest/Vitest JSON, JUnit (pytest/PHPUnit), TRX, `go test -json`, Flutter JSON, RSpec JSON, libtest and ExUnit text, plus diagnostics for tsc, MSBuild, rustc, go, mypy, ruff, dart analyze, rubocop, phpstan and mix.
+- Invariant: a non-zero exit is never reported as passed; a missing tool is `skipped`, never `passed`.
+- Auto-fix loop: test → model-proposed search/replace patch (implementation files only) → re-test; a patch that increases failures is rolled back.
+
+## 5. Architecture Audit
+- Classifies each file into slice and role (domain, application, infrastructure, presentation, module, test) per stack layout, extracts imports per language (TS/JS, Dart, Python, Rust, Go, C#, PHP, Ruby, Elixir) and enforces the dependency matrix.
+- HexaCore audits itself in CI (`hexacore arch src`).
+
+## 6. Resilience and Safety
+- Process execution without a shell, allowlisted executables, Windows process-tree kill on timeout.
+- Circuit breaker per `stack:check` bucket that trips only on infrastructure failures.
+- State writes are atomic (temp file + rename) and serialized; checkpoint journals are written before the files they protect.
+
+## 7. Verification Strategy
+- Unit and integration tests (including a real MCP client over an in-memory transport).
+- `scripts/mcp_smoke.mjs`: the built server over real stdio.
+- `scripts/e2e_stack.mjs`: for each of the 11 stacks, scaffold two slices into a minimal host project and require the stack's own compiler, test runner and HexaCore's architecture audit to pass (CI matrix).

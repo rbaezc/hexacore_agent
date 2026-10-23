@@ -1,7 +1,7 @@
 {
   "name": "hexacore-agent",
-  "version": "2.0.1",
-  "description": "HexaCore Agent - Enterprise Local Event-Orchestrated Agentic System",
+  "version": "3.0.0",
+  "description": "HexaCore Agent - governed Vertical Slice Architecture companion (MCP server + CLI) for 11 stacks",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -9,7 +9,9 @@
     "start": "tsx src/cli/hexacore_cli.ts",
     "mcp": "tsx src/cli/mcp_launcher.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "e2e": "node scripts/e2e_stack.mjs"
   },
   "keywords": [],
   "author": "HexaCore Architecture Team",
@@ -23,6 +25,21 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.5.0",
-    "cross-spawn": "^7.0.6"
+    "cross-spawn": "^7.0.6",
+    "zod": "^4.4.3"
+  },
+  "bin": {
+    "hexacore": "dist/cli/hexacore_cli.js",
+    "hexacore-mcp": "dist/cli/mcp_launcher.js"
+  },
+  "files": [
+    "dist",
+    "docs/rules",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
   }
 }

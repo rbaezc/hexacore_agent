@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HexaCore Agent | Enterprise Manual for HexaGen Suite</title>
-  <meta name="description" content="Official Enterprise Platform & Complete Usage Guide for HexaCore Agent - Supporting the complete 12-variant HexaGen Suite.">
+  <meta name="description" content="Official Enterprise Platform & Complete Usage Guide for HexaCore Agent - Supporting the complete 11-variant HexaGen Suite.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -359,7 +359,7 @@
       <li><a href="#workflow" class="nav-link active">1. End-to-End Workflow</a></li>
       <li><a href="#quickstart" class="nav-link">2. One-Time Core Setup</a></li>
       <li><a href="#overview" class="nav-link">3. Architecture Overview</a></li>
-      <li><a href="#matrix" class="nav-link">4. HexaGen 12-Stack Matrix</a></li>
+      <li><a href="#matrix" class="nav-link">4. HexaGen 11-Stack Matrix</a></li>
       <li><a href="#mcp" class="nav-link">5. MCP Integration Guide</a></li>
       <li><a href="#tools" class="nav-link">6. Tool Catalog Reference</a></li>
       <li><a href="#cli" class="nav-link">7. Interactive CLI Workbench</a></li>
@@ -371,9 +371,9 @@
     <section class="hero-banner">
       <div class="hero-badge">Principal Platform Architecture</div>
       <h1 class="hero-title">HexaCore Agent Platform</h1>
-      <p class="hero-desc">Complete Official Operating Manual & End-to-End Workflow Guide for the 12-variant HexaGen Suite. Local RAG-governed, event-orchestrated agentic engineering engine.</p>
+      <p class="hero-desc">Complete Official Operating Manual & End-to-End Workflow Guide for the 11-variant HexaGen Suite. Local RAG-governed, event-orchestrated agentic engineering engine.</p>
       <div style="display: flex; gap: 1rem; align-items: center;">
-        <span class="version-tag">v1.0.0 Enterprise</span>
+        <span class="version-tag">v3.0.0</span>
         <span style="color: var(--text-muted); font-size: 0.85rem;">Published for GitHub Pages</span>
       </div>
     </section>
@@ -403,8 +403,8 @@
 
       <div class="step-box">
         <div class="step-number">Step 4 — Autonomous Execution & QA Loop</div>
-        <div class="step-title">Prompt the Agent to Build, Test & Self-Heal</div>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">When you ask to build a feature (e.g., "Create a payments slice"), HexaCore extracts rules from <code>/docs</code>, generates VSA files (&lt; 250 lines), executes test runners (<code>cargo test</code>, <code>mix test</code>, <code>dotnet test</code>), and auto-fixes failing code in a closed loop.</p>
+        <div class="step-title">Design, Build, Verify — with Every Write Reversible</div>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Ask for a feature (e.g., "Create a payments slice"). Your AI client decomposes it into slices; HexaCore retrieves the applicable rules, generates slices adapted to your project (with tests), audits the architecture, and runs the stack's own compiler and test runner with structured results. When the client supports MCP sampling, failing tests are fixed through the client's model — never by editing tests — and any patch that makes things worse is rolled back.</p>
       </div>
     </section>
 
@@ -449,7 +449,7 @@ npm test</code></pre>
         </div>
         <div class="card-item">
           <h4>Circuit Breaker Resilience</h4>
-          <p>Protects system execution from hung processes (dotnet test, mix test, vitest) with automated timeout & health state management.</p>
+          <p>Trips only on infrastructure failures (spawn errors, timeouts) — never on red tests — and kills hung process trees (dotnet test, mix test, vitest).</p>
         </div>
         <div class="card-item">
           <h4>Security Sandbox Guard</h4>
@@ -458,9 +458,9 @@ npm test</code></pre>
       </div>
     </section>
 
-    <!-- 12-Stack Matrix Section -->
+    <!-- 11-Stack Matrix Section -->
     <section id="matrix" class="section-card">
-      <h2 class="section-title">4. Complete HexaGen 12-Stack Support Matrix</h2>
+      <h2 class="section-title">4. Complete HexaGen 11-Stack Support Matrix</h2>
       <p class="section-p">The system senses the active workspace technology and dynamically activates stack-specific tool catalogs (Anti-Tool-Fatigue pattern):</p>
       
       <div class="table-controls">
@@ -468,7 +468,7 @@ npm test</code></pre>
         <span style="font-size: 0.8rem; color: var(--text-muted);">11 / 11 Variants Active</span>
       </div>
 
-      <p style="font-size: 0.85rem; color: var(--text-muted);">Each stack scaffolds a full 4-layer slice by default under the path shown: domain (entity/schema), application (handler/service), infrastructure (repository), and presentation (controller/route/widget) — wired together with real dependency injection. Pass <code>layer</code> to <code>execute_scaffolding</code> to generate only one of them.</p>
+      <p style="font-size: 0.85rem; color: var(--text-muted);">Each stack scaffolds a full slice under the path shown: domain (entity + repository port), application (use cases), infrastructure (in-memory adapter), presentation, a composition root and tests — adapted to the host project (namespaces, app name, test runner). Generated code is compiled and tested with every real toolchain in CI. Pass <code>layer</code> to generate a single layer, <code>dryRun</code> to preview.</p>
 
       <div class="table-responsive">
         <table id="stackTable">
@@ -487,7 +487,7 @@ npm test</code></pre>
               <td><span class="stack-badge badge-elixir">Elixir / Phoenix</span></td>
               <td><code>mix.exs</code></td>
               <td><code>mix test</code></td>
-              <td><code>lib/app/&lt;slice&gt;/...</code></td>
+              <td><code>lib/&lt;app&gt;/&lt;slice&gt;/...</code></td>
             </tr>
             <tr>
               <td><strong>nodehexagen</strong></td>
@@ -501,14 +501,14 @@ npm test</code></pre>
               <td><span class="stack-badge badge-laravel">PHP / Laravel</span></td>
               <td><code>composer.json</code></td>
               <td><code>php artisan test</code></td>
-              <td><code>app/Actions/&lt;Slice&gt;/...</code></td>
+              <td><code>app/Features/&lt;Slice&gt;/...</code></td>
             </tr>
             <tr>
               <td><strong>nethexagen / hexagensharp</strong></td>
               <td><span class="stack-badge badge-dotnet">.NET / C# (Blazor)</span></td>
               <td><code>*.csproj</code> / <code>*.sln</code></td>
               <td><code>dotnet test</code></td>
-              <td><code>Features/&lt;Slice&gt;/...</code></td>
+              <td><code>&lt;Project&gt;/Features/&lt;Slice&gt;/...</code></td>
             </tr>
             <tr>
               <td><strong>rusthexagen</strong></td>
@@ -528,7 +528,7 @@ npm test</code></pre>
               <td><strong>reacthexagen</strong></td>
               <td><span class="stack-badge badge-node">React / Vite</span></td>
               <td><code>package.json</code> (react)</td>
-              <td><code>npm test</code></td>
+              <td><code>npx vitest run</code> / <code>jest</code></td>
               <td><code>src/features/&lt;slice&gt;/...</code></td>
             </tr>
             <tr>
@@ -550,13 +550,13 @@ npm test</code></pre>
               <td><span class="stack-badge badge-laravel">Ruby / Rails</span></td>
               <td><code>Gemfile</code></td>
               <td><code>bundle exec rspec</code></td>
-              <td><code>app/{domain,services,repositories,controllers}/...</code></td>
+              <td><code>app/features/&lt;slice&gt;/...</code></td>
             </tr>
             <tr>
               <td><strong>reactnativehexagen</strong></td>
               <td><span class="stack-badge badge-node">React Native</span></td>
               <td><code>package.json</code> (rn)</td>
-              <td><code>npm test</code></td>
+              <td><code>npx vitest run</code> / <code>jest</code></td>
               <td><code>src/features/&lt;slice&gt;/...</code></td>
             </tr>
           </tbody>
@@ -577,11 +577,14 @@ npm test</code></pre>
         <pre><code>{
   "mcpServers": {
     "hexacore-agent": {
-      "command": "npx",
-      "args": ["tsx", "<path-to-hexacore_agent>/src/cli/mcp_launcher.ts"]
+      "command": "node",
+      "args": ["&lt;path-to-hexacore_agent&gt;/dist/cli/mcp_launcher.js"]
     }
   }
-}</code></pre>
+}
+
+# Claude Code:
+claude mcp add hexacore-agent -- node &lt;path-to-hexacore_agent&gt;/dist/cli/mcp_launcher.js</code></pre>
       </div>
     </section>
 
@@ -593,23 +596,47 @@ npm test</code></pre>
       <div class="grid-2">
         <div class="card-item">
           <h4><code>resume_session</code></h4>
-          <p>Restores session state atomically from disk (<code>.hexagen/state.json</code>) to recover memory with minimal token usage.</p>
+          <p>Call first: briefing of unfinished plans, last QA results, decisions, last handoff and checkpoints, plus detected stacks.</p>
         </div>
         <div class="card-item">
           <h4><code>search_knowledge_base</code></h4>
-          <p>Executes local BM25/TF-IDF semantic scoring over <code>/docs</code> to extract architecture and database rules.</p>
+          <p>Bilingual BM25 search over bundled rules, project rules (.hexagen/rules) and ADRs (docs/adr).</p>
         </div>
         <div class="card-item">
           <h4><code>execute_scaffolding</code></h4>
-          <p>Generates a complete 4-layer vertical slice (domain, application, infrastructure, presentation) wired with real dependency injection, respecting file line limits (&lt; 250 lines), for any of the 11 HexaGen stacks.</p>
+          <p>Generates a slice with tests and composition root, adapted to the host project. Never overwrites without overwrite:true; dryRun previews.</p>
         </div>
         <div class="card-item">
           <h4><code>run_quality_assurance</code></h4>
-          <p>Runs environment-native unit test suites under Circuit Breaker protection and parses failures into structured JSON.</p>
+          <p>test / typecheck / lint / build with the stack's own tools; structured failures with file and line; missing tools reported as skipped.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>check_architecture</code></h4>
+          <p>Audits cross-slice coupling, layer dependency direction and the 250-line limit across the workspace.</p>
         </div>
         <div class="card-item">
           <h4><code>orchestrate_task</code></h4>
-          <p>Executes full autonomous Plan-and-Solve agent pipeline (RAG Rule Injection -&gt; Scaffolding -&gt; QA Verification -&gt; Auto-Healing).</p>
+          <p>Runs a persisted plan: rules → scaffold each slice → architecture → QA (sampling-based auto-fix when available).</p>
+        </div>
+        <div class="card-item">
+          <h4><code>resume_plan</code></h4>
+          <p>Continues a persisted plan from its first unfinished step.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>list_checkpoints / rollback_changes</code></h4>
+          <p>Every HexaCore write is checkpointed; rollback is all-or-nothing and refuses to clobber later edits unless forced.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>record_decision</code></h4>
+          <p>Writes an ADR to docs/adr/ and makes it retrievable in later sessions.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>define_contract</code></h4>
+          <p>Contract-first: writes contracts/&lt;slice&gt;.openapi.yaml (OpenAPI 3.1).</p>
+        </div>
+        <div class="card-item">
+          <h4><code>record_handoff</code></h4>
+          <p>Leaves a summary, next steps and open questions for the next session.</p>
         </div>
       </div>
     </section>
@@ -624,19 +651,23 @@ npm test</code></pre>
           <span>Terminal Commands</span>
           <span>Bash / Powershell</span>
         </div>
-        <pre><code># Load transactional state manifest
-npm start state
+        <pre><code># Session briefing
+npm start -- state --workspace ../my_app
 
-# Execute local BM25 semantic rule search
-npm start rag "database foreign key constraints"
+# Rule search (English or Spanish)
+npm start -- rag "reglas de capas en go"
 
-# Scaffold a Vertical Slice for any HexaGen stack
-npm start scaffold rust payments
-npm start scaffold elixir auth
-npm start scaffold python order
+# Preview, then scaffold a slice
+npm start -- scaffold rust payments --dryRun --workspace ../my_app
+npm start -- scaffold rust payments --workspace ../my_app
 
-# Run full Plan-and-Solve autonomous pipeline
-npm start orchestrate billing dotnet</code></pre>
+# Quality checks and architecture audit
+npm start -- qa rust --checks typecheck,test --workspace ../my_app
+npm start -- arch --workspace ../my_app
+
+# Plan with several slices; undo a checkpoint
+npm start -- orchestrate dotnet orders,invoices --workspace ../my_app
+npm start -- rollback cp_123 --workspace ../my_app</code></pre>
       </div>
     </section>
 
@@ -646,6 +677,8 @@ npm start orchestrate billing dotnet</code></pre>
       <ul style="margin-left: 1.5rem; color: var(--text-muted); font-size: 0.95rem; display: flex; flex-direction: column; gap: 0.75rem;">
         <li><strong style="color: #fff;">Strict Line Count Limit (&lt; 250 Lines)</strong>: No generated or edited code file may exceed 250 lines of code. Enforced by automated Slice Policy Linter.</li>
         <li><strong style="color: #fff;">Mandatory Foreign Key Constraints</strong>: Relational database migrations must enforce strict FK constraints without exception.</li>
+        <li><strong style="color: #fff;">Reversible Writes</strong>: Every file HexaCore writes is recorded in a checkpoint (<code>.hexagen/checkpoints/</code>) and can be rolled back exactly.</li>
+        <li><strong style="color: #fff;">Tests Are the Specification</strong>: Automated fixes may never edit test files.</li>
         <li><strong style="color: #fff;">Atomic File Operations</strong>: All state modifications write to temporary files first before atomic kernel OS renames, preventing state corruption.</li>
         <li><strong style="color: #fff;">Circuit Breaker & Process Resilience</strong>: All sub-processes operate under automatic circuit breaker protection (CLOSED, OPEN, HALF_OPEN) with aggressive timeouts.</li>
       </ul>
@@ -657,11 +690,11 @@ npm start orchestrate billing dotnet</code></pre>
       <div class="grid-2">
         <div class="card-item">
           <h4>What happens if a test fails during QA?</h4>
-          <p>The QA Autonomous Loop automatically intercepts the error log, passes it to the SmartCodePatcher, applies a surgical fix to the source code, and re-tests in a closed loop.</p>
+          <p>HexaCore returns structured failures (test, file, line, message). If your client supports MCP sampling, HexaCore asks your model for a search/replace fix to implementation code only, applies it through a checkpoint, re-tests, and rolls it back if things got worse. Otherwise the client model fixes the code and re-runs <code>run_quality_assurance</code>.</p>
         </div>
         <div class="card-item">
           <h4>How does State Recovery work after a crash?</h4>
-          <p>The AI client invokes <code>resume_session</code> on start. HexaCore reads <code>.hexagen/state.json</code> and injects a compact summary of facts and completed steps into prompt memory.</p>
+          <p>The AI client invokes <code>resume_session</code> on start. HexaCore reads <code>.hexagen/state.json</code> and returns a briefing: unfinished plans (continue with <code>resume_plan</code>), failing checks, recent ADRs and the last handoff note.</p>
         </div>
       </div>
     </section>

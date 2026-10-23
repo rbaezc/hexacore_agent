@@ -1,3 +1,5 @@
+import { analyze } from './text_analyzer.js';
+
 export interface CorpusStats {
   totalDocuments: number;
   averageDocumentLength: number;
@@ -10,12 +12,9 @@ export class HybridRagScorer {
   private static readonly B = 0.75;
   private static readonly HEADING_MATCH_MULTIPLIER = 3.0;
 
+  /** Accent-folded, stop-word-filtered, stemmed tokens (English + Spanish). */
   static tokenize(text: string): string[] {
-    return text
-      .toLowerCase()
-      .replace(/[^\w\s]/g, '')
-      .split(/\s+/)
-      .filter((t) => t.length > 2);
+    return analyze(text);
   }
 
   /** Computes real corpus-wide document frequency + average length, the inputs real BM25 IDF needs. */
@@ -38,10 +37,13 @@ export class HybridRagScorer {
     };
   }
 
+  /** `queryTokens` may be raw words or already-tokenized terms; both are normalized the same way. */
   static calculateScore(queryTokens: string[], heading: string, content: string, stats: CorpusStats): number {
-    if (queryTokens.length === 0 || stats.totalDocuments === 0) return 0;
+    const terms = [...new Set(queryTokens.flatMap((t) => this.tokenize(t)))];
+    if (terms.length === 0 || stats.totalDocuments === 0) return 0;
 
     const docTokens = this.tokenize(`${heading} ${content}`);
+    const headingTokens = new Set(this.tokenize(heading));
     const docLen = docTokens.length;
     const termFrequency = new Map<string, number>();
     for (const token of docTokens) {
@@ -49,7 +51,7 @@ export class HybridRagScorer {
     }
 
     let totalScore = 0;
-    for (const token of queryTokens) {
+    for (const token of terms) {
       const tf = termFrequency.get(token) || 0;
       if (tf === 0) continue;
 
@@ -61,10 +63,7 @@ export class HybridRagScorer {
       const denominator = tf + this.K1 * (1 - this.B + this.B * (docLen / (stats.averageDocumentLength || 1)));
       const bm25TermScore = idf * (numerator / denominator);
 
-      const isHeadingMatch = heading.toLowerCase().includes(token);
-      const multiplier = isHeadingMatch ? this.HEADING_MATCH_MULTIPLIER : 1.0;
-
-      totalScore += bm25TermScore * multiplier;
+      totalScore += bm25TermScore * (headingTokens.has(token) ? this.HEADING_MATCH_MULTIPLIER : 1.0);
     }
 
     return parseFloat(totalScore.toFixed(3));

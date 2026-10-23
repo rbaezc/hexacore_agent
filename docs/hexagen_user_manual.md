@@ -2,155 +2,168 @@
 
 ---
 
-## 1. End-to-End Developer Workflow: How It Works
+## 1. End-to-End Developer Workflow
 
-Do you need your target HexaGen project running before starting? **No!** HexaCore Agent acts as an autonomous local engine that interfaces with any project directory (existing or new).
+HexaCore Agent is a local MCP server (plus CLI) that your AI client uses as its governed "hands" on any project directory — existing or new. It does not need your project to be running.
 
-### The Complete Lifecycle:
+1. **One-time setup** — build HexaCore once (`npm install && npm run build`).
+2. **Register it in your AI client** — Claude Code, Cursor, VS Code, Antigravity (see §5).
+3. **Open any HexaGen project** — HexaCore detects every stack in the workspace (monorepos included, two levels deep) from its manifest files, and takes the workspace root from the client's MCP roots.
+4. **Work in a governed loop**:
+   - `resume_session` → where the last session stopped.
+   - Design: `search_knowledge_base`, `define_contract`, `record_decision`.
+   - Build: `execute_scaffolding` (preview with `dryRun`) or `orchestrate_task` for several slices.
+   - Verify: `run_quality_assurance` (test, typecheck, lint, build) and `check_architecture`.
+   - Close: `record_handoff`.
 
-1. **Step 1 — One-Time Server Setup**:
-   You build HexaCore Agent only once on your machine (`<path-to-hexacore_agent>`). This prepares the local Model Context Protocol (MCP) server executable.
-
-2. **Step 2 — IDE / AI Client Registration**:
-   Configure your `mcp.json` pointing to HexaCore Agent. This connects the agent's tools directly to your AI chat interface (Antigravity, Claude Code, Cursor, VS Code).
-
-3. **Step 3 — Open Any HexaGen Project Workspace**:
-   Open your target project folder (e.g., `my_rust_backend` with `Cargo.toml` or `my_elixir_app` with `mix.exs`). HexaCore automatically senses the **Project Detection File**. If the directory is empty, HexaCore can scaffold the base project for you!
-
-4. **Step 4 — Autonomous Execution & QA Loop**:
-   When you ask to build a feature (e.g., "Create a payments slice"), HexaCore extracts rules from `/docs`, generates VSA files (< 250 lines), executes test runners (`cargo test`, `mix test`, `dotnet test`), and auto-fixes failing code in a closed loop.
+Every file HexaCore writes is checkpointed; `rollback_changes` undoes it exactly.
 
 ---
 
 ## 2. One-Time Core Setup Guide
 
 ### Prerequisites
-- **Node.js**: v20.0.0 or higher
-- **npm / npx**: v10.0.0 or higher
+- **Node.js** 20 or higher.
+- The toolchains of the stacks you work with (HexaCore drives them; it doesn't bundle them).
 
-### Installation Commands
+### Installation
 ```bash
-# 1. Clone & navigate to your hexacore_agent directory
 git clone https://github.com/rbaezc/hexacore_agent.git
 cd hexacore_agent
-
-# 2. Install dependencies
 npm install
-
-# 3. Build TypeScript project
 npm run build
-
-# 4. Run automated test suite
 npm test
 ```
 
 ---
 
-## 3. System Overview & Core Architecture
+## 3. System Overview
 
-HexaCore Agent is a local, event-orchestrated agentic engineering system operating at Principal Platform Architecture level, governed by strict architectural policies.
-
-It automates the complete software development lifecycle (Plan-and-Solve, Scaffolding, Rule RAG, Autonomous QA, and Code Self-Healing) across all **11 variants of the corporate HexaGen suite**.
+- **Governance brain** — bilingual (English/Spanish) BM25 search over the bundled rules (`docs/rules/`), the project's own rules (`.hexagen/rules/*.md`) and its ADRs (`docs/adr/`).
+- **Scaffolding** — generates slices adapted to the host project: .NET root namespace and test project, Elixir app name, Dart package, JS test runner and module resolution.
+- **Quality assurance** — runs each stack's native tools with machine-readable reporters (JSON, JUnit, TRX, go test -json…) and returns structured failures with file and line.
+- **Architecture audit** — cross-slice coupling, layer dependency direction and the 250-line limit, for all 11 stacks.
+- **Orchestration** — persisted plans that survive crashes and can be resumed.
+- **Change control** — checkpoints for every write; all-or-nothing rollback that refuses to clobber later edits.
+- **Memory** — plans, ADR index, QA history and handoff notes in `.hexagen/state.json`.
 
 ---
 
-## 4. Complete HexaGen Suite Support (11 Stacks)
+## 4. HexaGen Suite Support (11 Stacks)
 
-HexaCore Agent automatically detects the active technology stack in the workspace root and dynamically exposes only the required tool catalog (Anti-Tool-Fatigue pattern):
+Each stack scaffolds a full slice by default: domain (entity + repository port), application (use cases), infrastructure (in-memory adapter), presentation, a composition root, and tests. Pass `layer` to generate a single layer.
 
-Each stack scaffolds a full 4-layer slice by default: **domain** (entity/schema), **application** (handler/service, injected with the repository), **infrastructure** (repository), and **presentation** (controller/route/widget, injected with the handler). Pass `layer` to `execute_scaffolding` to generate only one of them.
-
-| HexaGen Variant | Technology Stack | Project Detection File | Automated Test Runner | Generated Slice Root |
+| HexaGen Variant | Stack | Detection File | Test Runner (as invoked) | Generated Slice Root |
 | :--- | :--- | :--- | :--- | :--- |
-| **hexagen** | Elixir / Phoenix | `mix.exs` | `mix test` | `lib/app/<slice>/` (+ `lib/app_web/controllers/<slice>_controller.ex`) |
-| **nodehexagen** | Node.js / TypeScript | `package.json` | `npx vitest run` | `src/features/<slice>/{domain,application,infrastructure,presentation}/` |
-| **laravelhexagen** | PHP / Laravel | `composer.json` | `php artisan test` | `app/DataTransferObjects/`, `app/Actions/<Slice>/`, `app/Repositories/`, `app/Http/Controllers/` |
-| **nethexagen / hexagensharp** | .NET / C# (Blazor) | `*.csproj` / `*.sln` | `dotnet test` | `Features/<Slice>/{<Slice>Entity,<Slice>Handler,<Slice>Repository,<Slice>Controller}.cs` |
-| **rusthexagen** | Rust / Axum | `Cargo.toml` | `cargo test` | `src/slices/<slice>/{domain,service,repository,handler,mod}.rs` |
-| **pyhexagen** | Python / FastAPI | `pyproject.toml` | `pytest` | `app/slices/<slice>/{domain,service,repository,router}.py` |
-| **reacthexagen** | React / Vite | `package.json` (react) | `npm test` | `src/features/<slice>/{domain,application,infrastructure,presentation}/` |
-| **gohexagen** | Go / Golang | `go.mod` | `go test ./...` | `internal/slices/<slice>/{domain,service,repository,handler}.go` |
-| **flutterhexagen** | Flutter / Dart | `pubspec.yaml` | `flutter test` | `lib/features/<slice>/{domain,application,infrastructure,presentation}/` |
-| **rubyhexagen** | Ruby / Rails | `Gemfile` | `bundle exec rspec` | `app/domain/`, `app/services/`, `app/repositories/`, `app/controllers/` |
-| **reactnativehexagen** | React Native / Mobile | `package.json` (rn) | `npm test` | `src/features/<slice>/{domain,application,infrastructure,presentation}/` |
+| **hexagen** | Elixir / Phoenix | `mix.exs` | `mix test` | `lib/<app>/<slice>/` + `lib/<app>_web/controllers/` |
+| **nodehexagen** | Node.js / TypeScript | `package.json` | `vitest --reporter=json` / `jest --json` | `src/features/<slice>/` |
+| **laravelhexagen** | PHP / Laravel | `composer.json` | `php artisan test --log-junit` | `app/Features/<Slice>/` |
+| **nethexagen / hexagensharp** | .NET / C# | `*.csproj` / `*.sln` | `dotnet test --logger trx` | `<Project>/Features/<Slice>/` |
+| **rusthexagen** | Rust / Axum | `Cargo.toml` | `cargo test` | `src/slices/<slice>/` |
+| **pyhexagen** | Python / FastAPI | `pyproject.toml` / `requirements.txt` | `pytest --junitxml` | `app/slices/<slice>/` |
+| **reacthexagen** | React | `package.json` (react) | `vitest` / `jest` | `src/features/<slice>/` |
+| **gohexagen** | Go | `go.mod` | `go test -json ./...` | `internal/slices/<slice>/` |
+| **flutterhexagen** | Flutter / Dart | `pubspec.yaml` | `flutter test --reporter json` | `lib/features/<slice>/` |
+| **rubyhexagen** | Ruby / Rails | `Gemfile` | `bundle exec rspec --format json` | `app/features/<slice>/` |
+| **reactnativehexagen** | React Native | `package.json` (react-native/expo) | `vitest` / `jest` | `src/features/<slice>/` |
+
+Detailed per-stack rules: `docs/rules/stacks/<stack>.md`.
 
 ---
 
-## 5. Configuration & MCP Integration
+## 5. MCP Integration
 
-HexaCore Server connects natively via the **Model Context Protocol (MCP)** over `stdio` to AI clients such as Antigravity, Claude Code, Cursor, or VS Code.
+HexaCore speaks MCP over stdio.
 
-### Configuration Specification (`mcp.json`):
+### Claude Code
+```bash
+claude mcp add hexacore-agent -- node <path-to-hexacore_agent>/dist/cli/mcp_launcher.js
+```
+
+### Generic `mcp.json`
 ```json
 {
   "mcpServers": {
     "hexacore-agent": {
-      "command": "npx",
-      "args": ["tsx", "<path-to-hexacore_agent>/src/cli/mcp_launcher.ts"]
+      "command": "node",
+      "args": ["<path-to-hexacore_agent>/dist/cli/mcp_launcher.js"]
     }
   }
 }
 ```
 
----
-
-## 6. Exposed MCP Tool Catalog Reference
-
-### 1. `resume_session`
-- **Description**: Atomically loads transactional memory and state manifest from `.hexagen/state.json`.
-
-### 2. `search_knowledge_base`
-- **Parameters**: `query` (string).
-- **Description**: Executes local BM25/TF-IDF semantic scoring over `/docs` and extracts exact architecture rules.
-
-### 3. `execute_scaffolding`
-- **Parameters**: `stack` (enum of 11 stacks), `sliceName` (string), `layer` (optional: `domain` | `application` | `infrastructure` | `presentation` | `full`, default `full`).
-- **Description**: Generates a complete Vertical Slice — domain entity, application handler/service, infrastructure repository, and presentation controller/route — wired together with real dependency injection (handler depends on repository, presentation depends on handler) and idiomatic per-stack patterns (CQRS for .NET, Actions for Laravel, Contexts for Elixir, hooks for React, etc.), respecting file line limits (< 250 lines) and cross-slice decoupling. Pass `layer` to generate a single layer instead of the full slice.
-
-### 4. `run_quality_assurance`
-- **Parameters**: `stack` (enum of 11 stacks), `scope` (optional).
-- **Description**: Launches environment-native unit test suites under Circuit Breaker protection and parses failures into structured JSON.
-
-### 5. `orchestrate_task`
-- **Parameters**: `description`, `targetStack`, `sliceName`.
-- **Description**: Executes full autonomous Plan-and-Solve agent pipeline (RAG -> Scaffolding -> QA -> Self-Healing).
+- **Workspace**: taken from the client's MCP roots; otherwise the server's working directory. `HEXACORE_WORKSPACE=/path` overrides both.
+- **Auto-fix**: enabled automatically when the client supports MCP sampling. Without it, HexaCore returns structured failures and the client model fixes them.
 
 ---
 
-## 7. Interactive CLI Workbench Usage
+## 6. MCP Tool Catalog
 
-Developers can also operate the platform directly from the terminal:
+| Tool | Purpose |
+| :--- | :--- |
+| `resume_session` | Briefing: unfinished plans, last QA per check, recent ADRs, last handoff, recent checkpoints, detected stacks. Call first. |
+| `search_knowledge_base(query, topK?)` | Rule retrieval across bundled rules, project rules and ADRs (English/Spanish). |
+| `execute_scaffolding(stack, sliceName, layer?, targetDir?, dryRun?, overwrite?, includeTests?)` | Generate a slice. Refuses to overwrite unless `overwrite: true`; `dryRun` returns planned files with content. |
+| `run_quality_assurance(stack, checks?, scope?, cwd?)` | `test`, `typecheck`, `lint`, `build`. Structured results; missing tools are `skipped` (never `passed`). Streams progress. |
+| `check_architecture(path?)` | Audit coupling, layer direction and file size. |
+| `orchestrate_task(description, targetStack, slices? \| sliceName, targetDir?, overwrite?, qaChecks?, autoFix?)` | Persisted plan: rules → scaffold each slice → architecture → QA (+ auto-fix). Returns `nextActions`. |
+| `resume_plan(planId, autoFix?)` | Continue a plan from its first unfinished step. |
+| `list_checkpoints(limit?)` | Recent checkpoints and the files each touched. |
+| `rollback_changes(checkpointId, force?)` | Undo a checkpoint; refuses if files changed afterwards unless `force`. |
+| `record_decision(title, context, decision, consequences, alternatives?, status?, tags?)` | Write an ADR to `docs/adr/` and index it. |
+| `define_contract(sliceName, operations[], …)` | Write `contracts/<slice>.openapi.yaml` (OpenAPI 3.1). |
+| `record_handoff(summary, nextSteps?, openQuestions?)` | Leave context for the next session. |
+
+**Prompts** (slash commands in most clients): `design_feature`, `implement_slice`, `fix_failing_checks`.
+**Resources**: every rule document (`hexacore://knowledge/...`) and the session briefing (`hexacore://session/briefing`).
+
+---
+
+## 7. CLI
+
+The CLI calls the same tools (same validation) and prints JSON to stdout. Exit codes: `0` ok, `1` error, `2` checks/plan not green.
 
 ```bash
-# Query transactional state manifest
-npm start state
-
-# Perform local BM25 semantic rule search
-npm start rag "database foreign key constraints"
-
-# Scaffold a Vertical Slice for any HexaGen stack
-npm start scaffold rust payments
-npm start scaffold elixir auth
-npm start scaffold python order
-
-# Run complete Plan-and-Solve autonomous pipeline
-npm start orchestrate billing dotnet
+npm start -- state --workspace ../my_app
+npm start -- rag "reglas de capas en go"
+npm start -- scaffold rust payments --dryRun --workspace ../my_app
+npm start -- scaffold rust payments --workspace ../my_app
+npm start -- qa rust --checks typecheck,test --workspace ../my_app
+npm start -- arch --workspace ../my_app
+npm start -- orchestrate dotnet orders,invoices --checks build,test --workspace ../my_app
+npm start -- resume plan_123 --workspace ../my_app
+npm start -- checkpoints --workspace ../my_app
+npm start -- rollback cp_123 --workspace ../my_app
 ```
+
+After `npm run build`, the same commands are available as `hexacore <command>`.
 
 ---
 
 ## 8. Governance & Security Policies
 
-1. **Strict Line Count Limit (< 250 Lines)**: No generated or maintained source code file may exceed **250 lines of code**.
-2. **Foreign Key Constraints (FK Constraints)**: Mandatory usage across all relational database migrations.
-3. **Process Resilience**: All child processes operate under automatic **Circuit Breaker** protection (`CLOSED`, `OPEN`, `HALF_OPEN`).
-4. **Security Sandbox Guard**: Path traversal protection and shell sanitization against destructive commands.
+1. **250-line limit** for every source file (generated code is blocked before writing; existing code is reported by `check_architecture`).
+2. **Layer direction**: domain → nothing; application → domain; infrastructure → domain/application; presentation → application/domain.
+3. **No horizontal coupling** between slices; communicate via `shared/domain` contracts or domain events.
+4. **Tests are the specification**: automated fixes never edit test files.
+5. **Reversible writes**: every write goes through a checkpoint in `.hexagen/checkpoints/`.
+6. **Sandboxed execution**: allowlisted executables only, argv without a shell, path traversal blocked, process-tree kill on timeout.
+7. **Circuit breaker** per stack and check: opens on infrastructure failures (spawn errors, timeouts) — never on failing tests.
+
+Recommended `.gitignore` entries for projects using HexaCore:
+```
+.hexagen/checkpoints/
+.hexagen/telemetry.log
+```
+Commit `.hexagen/state.json` if you want plans, ADR index and handoffs shared with your team.
 
 ---
 
 ## 9. Troubleshooting & FAQ
 
-- **What happens if a test fails during QA?**
-  The QA Autonomous Loop intercepts the log, triggers `SmartCodePatcher`, applies fixes to source files, and re-tests automatically.
-- **How does State Recovery work?**
-  When starting a new chat session, `resume_session` reads `.hexagen/state.json` and restores project facts and pipeline ledgers into prompt context.
+- **A check says `skipped`.** Its tool isn't installed or configured (e.g. no `tsconfig.json`, no ESLint config, PHPStan not in `vendor/`). The `skipReason` says which. Skipped means *not verified*.
+- **Tests fail and nothing auto-fixes them.** Your client doesn't support MCP sampling; fix the failures listed in the result (file, line, message) and re-run `run_quality_assurance`.
+- **"Refusing to overwrite".** The files exist. Preview with `dryRun: true`, then pass `overwrite: true` if intended — it stays reversible.
+- **Rollback reports conflicts.** Someone edited those files after HexaCore wrote them. Nothing was changed. Review, then `force: true` if you really want the old content back.
+- **"Circuit breaker is OPEN".** The toolchain itself failed repeatedly (crashes or timeouts). Fix the environment; it retries automatically after 30 seconds.
+- **Wrong workspace.** Set `HEXACORE_WORKSPACE` in the MCP server configuration, or pass `--workspace` to the CLI.

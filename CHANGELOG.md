@@ -5,6 +5,46 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-10-22
+
+### Removed
+
+- **`SmartCodePatcher`**: it "fixed" failing tests by rewriting the assertion text (`expected true to be false` → `true`), i.e. it edited tests to make them pass. Replaced by `LlmCodePatcher` (see below).
+
+### Fixed
+
+- **Circuit breaker opened on red tests**: any non-zero exit counted as a failure, so after three failing test runs (the normal state while fixing code) the fourth was rejected with `exitCode 999` and an empty failure list. The breaker now trips only on infrastructure failures (`spawn_error`, `timeout`), per `stack:check` bucket, and `ProcessExecutionResult.failureKind` distinguishes `exit_code`, `not_found`, `timeout`, `blocked` and `circuit_open`.
+- **Scaffolding overwrote existing files silently.** It now refuses (writing nothing) unless `overwrite: true`, supports `dryRun`, and records every write in a checkpoint.
+- **Fabricated QA counts**: `totalTests` was `failures + 1` and failures were scraped from lines containing "FAIL"/"Error" (capped at 5). QA now uses each runner's machine-readable output (Vitest/Jest JSON, pytest JUnit, TRX, `go test -json`, Flutter JSON, RSpec JSON, libtest, ExUnit incl. the Elixir 1.20 summary format) and never reports a non-zero exit as passed.
+- **Rules and state were resolved against `process.cwd()`**: inside another project the RAG indexed that project's `docs/` and missed HexaCore's rules. Bundled rules now ship with the package; the workspace comes from MCP roots / `HEXACORE_WORKSPACE`.
+- Slice names with `-` produced invalid identifiers in most languages; names are now normalized (`user-profile` → `UserProfile`, `user_profile`, Go package `userprofile`), reserved words rejected.
+- Generated code hardcoded `App` namespaces/modules; it now follows the host project (.NET RootNamespace and test project, Elixir app, Dart package, JS test runner and module resolution).
+- Laravel and Ruby generators used horizontal folders (`app/Actions`, `app/Repositories`…), violating VSA rule 1; they now generate feature folders.
+- `npx tsc -p .` was parsed by npx as its own `--package` flag; npx invocations now use `--`.
+- Windows: timeouts killed only the `cmd.exe` shim, leaving the runner alive; the whole process tree is now killed.
+- Telemetry log rewrote the whole file on every span (O(n²)); it appends.
+
+### Added
+
+- **Structured MCP surface**: zod-validated tool inputs, `isError` on failure, `structuredContent`, progress notifications, stack enums narrowed to the detected stacks, MCP resources (rules, session briefing) and prompts (`design_feature`, `implement_slice`, `fix_failing_checks`).
+- **Sampling-based auto-fix** (`LlmCodePatcher`): asks the client's model for search/replace edits; rejects edits to test files, protected directories or ambiguous matches; applies through a checkpoint; the QA loop rolls back a patch that increases failures.
+- **`run_quality_assurance` checks**: `test`, `typecheck`, `lint`, `build` per stack, with diagnostics parsed from tsc, MSBuild, rustc, go, mypy, ruff, dart analyze, rubocop, phpstan and mix; missing tools are `skipped` with a reason.
+- **`check_architecture`**: workspace audit for cross-slice coupling, layer dependency direction and the 250-line limit across all 11 stacks. HexaCore passes its own audit (enforced in CI).
+- **Checkpoints**: `list_checkpoints` / `rollback_changes` with all-or-nothing rollback that refuses to clobber later edits unless forced.
+- **Persisted, resumable plans**: `orchestrate_task` takes a multi-slice decomposition, persists every step and returns `nextActions`; `resume_plan` continues from the first unfinished step.
+- **Design tools**: `record_decision` (ADRs in `docs/adr/`, indexed by the RAG) and `define_contract` (OpenAPI 3.1 per slice).
+- **Session memory**: `resume_session` returns a briefing (unfinished plans, last QA per check, ADRs, handoff, checkpoints); `record_handoff`.
+- **Generators**: one file per stack; every slice has a repository port in domain, an in-memory adapter, a composition root and tests; idempotent registrations (Rust `mod.rs`, Python `__init__.py`).
+- **Monorepo stack detection** (two levels deep); an empty workspace no longer pretends to be `node`.
+- **Bilingual RAG** (accent folding, EN/ES stop words, stemming, synonyms) over bundled rules, `.hexagen/rules/` and ADRs; expanded knowledge base with per-stack rules, testing and design conventions.
+- **Verification**: real MCP client integration tests, `scripts/mcp_smoke.mjs` (built server over stdio) and `scripts/e2e_stack.mjs`, which compiles and tests generated slices with each stack's real toolchain (CI matrix of 11 stacks).
+- README, `bin` entries (`hexacore`, `hexacore-mcp`), shared composition root for CLI and MCP.
+
+### Changed
+
+- CLI commands route through the same validated tools as MCP, print JSON to stdout (banner on stderr) and exit `2` when checks are not green.
+- `IProcessRunner.runCommand(command, args, options)` takes an options object (`cwd`, `bucketKey`, `onOutput`).
+
 ## [2.0.1] - 2026-08-19
 
 ### Security

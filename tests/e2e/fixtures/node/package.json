@@ -1,0 +1,6 @@
+{
+  "name": "e2e-node",
+  "private": true,
+  "type": "module",
+  "devDependencies": { "typescript": "5.9.3", "vitest": "4.1.11", "@types/node": "22.10.2" }
+}

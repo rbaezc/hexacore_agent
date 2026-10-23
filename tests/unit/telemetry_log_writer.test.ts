@@ -2,23 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { TelemetryLogWriter } from '../../src/shared/infrastructure/telemetry_log_writer.js';
 import { TelemetryService } from '../../src/shared/infrastructure/telemetry.js';
 import { EventBus } from '../../src/shared/domain/event_bus.js';
-import { IFileSystem } from '../../src/shared/infrastructure/file_system.js';
-
-class MockFs implements IFileSystem {
-  private store = new Map<string, string>();
-  async readFile(p: string) { return this.store.get(p) || ''; }
-  async writeFile(p: string, c: string) { this.store.set(p, c); }
-  async writeFileAtomic(p: string, c: string) { this.store.set(p, c); }
-  async exists(p: string) { return this.store.has(p); }
-  async ensureDir() {}
-  async listDirectory() { return []; }
-  read(p: string) { return this.store.get(p) || ''; }
-}
+import { InMemoryFileSystem } from '../helpers/in_memory_fs.js';
 
 describe('TelemetryLogWriter', () => {
   it('should persist completed spans as JSONL', async () => {
     const bus = new EventBus();
-    const fs = new MockFs();
+    const fs = new InMemoryFileSystem();
     const writer = new TelemetryLogWriter(fs, '/project', bus);
     writer.start();
 
@@ -29,8 +18,8 @@ describe('TelemetryLogWriter', () => {
     const otherSpan = telemetry.startSpan('qa_check', 'req_1');
     await telemetry.endSpan(otherSpan, 'FAILURE', { error: 'boom' });
 
-    const logPath = Array.from((fs as any).store.keys())[0] as string;
-    const content = fs.read(logPath);
+    const logPath = [...fs.files.keys()][0];
+    const content = fs.files.get(logPath)!;
     const lines = content.trim().split('\n');
 
     expect(lines).toHaveLength(2);

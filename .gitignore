@@ -5,8 +5,7 @@ node_modules/
 dist/
 
 # State Manifest & Temporary Data
-.hexagen/state.json
-.hexagen/*.tmp
+.hexagen/
 
 # Environment & Logs
 *.log

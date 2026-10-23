@@ -11,7 +11,10 @@ export class SecuritySandboxGuard {
     /chmod\s+777/i,
   ];
 
-  /** Base executables HexaCore is ever allowed to spawn (test runners + package managers it invokes them through). */
+  /**
+   * Base executables HexaCore is ever allowed to spawn: test runners, compilers/linters and the
+   * package managers it invokes them through. `python` is here only for `python -m pytest|mypy|ruff|compileall`.
+   */
   private static readonly ALLOWED_COMMANDS = new Set([
     'mix',
     'dotnet',
@@ -20,6 +23,8 @@ export class SecuritySandboxGuard {
     'php',
     'cargo',
     'pytest',
+    'python',
+    'python3',
     'go',
     'flutter',
     'bundle',
