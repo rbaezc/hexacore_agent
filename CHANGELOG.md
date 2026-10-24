@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-10-24
+
+### Added
+
+- **Learning loop** (new `learning` slice): HexaCore improves with use, using evidence from real check results.
+  - Every QA result is observed. A check that goes from red to green becomes an *episode*, and `run_quality_assurance` asks the model to distill it.
+  - `record_lesson` writes a reviewable lesson to `.hexagen/skills/`, linked to its episode. `updateId` rewrites a lesson and keeps its history. Near-duplicates are reported.
+  - When a check fails, the relevant lessons come back in the same result. `resume_session` reports the best lessons, failures still to distill and lessons that aren't helping.
+  - Offered lessons are credited when the failure resolves and debited if it stays red for 5 runs. `rate_lesson` adds explicit feedback or retires a lesson. Effectiveness ranks lessons in `search_knowledge_base` too.
+  - `review_lessons` is the maintenance view, and lesson search.
+  - `export_skills` promotes proven lessons to Claude Code skills (`.claude/skills/hexacore-*/SKILL.md`), through a checkpoint.
+  - CLI: `lessons [query]`, `export-skills [ids]`.
+- `orchestrate_task` results include the learning observation of their QA step.
+
+### Changed
+
+- The text analyzer moved to the shared kernel (`src/shared/domain/text_analyzer.ts`). It is still re-exported by `rag_engine`.
+- `RagSearchEngine` accepts a roots function and a per-document `boostProvider`. It also indexes `.hexagen/skills/` as the `lesson` source.
+
 ## [3.0.0] - 2026-10-22
 
 ### Removed

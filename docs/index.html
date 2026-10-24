@@ -373,7 +373,7 @@
       <h1 class="hero-title">HexaCore Agent Platform</h1>
       <p class="hero-desc">Complete Official Operating Manual & End-to-End Workflow Guide for the 11-variant HexaGen Suite. Local RAG-governed, event-orchestrated agentic engineering engine.</p>
       <div style="display: flex; gap: 1rem; align-items: center;">
-        <span class="version-tag">v3.0.0</span>
+        <span class="version-tag">v3.1.0</span>
         <span style="color: var(--text-muted); font-size: 0.85rem;">Published for GitHub Pages</span>
       </div>
     </section>
@@ -638,6 +638,22 @@ claude mcp add hexacore-agent -- node &lt;path-to-hexacore_agent&gt;/dist/cli/mc
           <h4><code>record_handoff</code></h4>
           <p>Leaves a summary, next steps and open questions for the next session.</p>
         </div>
+        <div class="card-item">
+          <h4><code>record_lesson</code></h4>
+          <p>Learning loop: turns a resolved failure (or any project-specific fix) into a lesson in .hexagen/skills/, suggested automatically when a similar check fails. <code>updateId</code> improves an existing lesson.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>rate_lesson</code></h4>
+          <p>Feedback on a suggested lesson (helpful or not), or retire it. Together with automatic outcomes, it drives ranking.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>review_lessons</code></h4>
+          <p>What HexaCore has learned: failures still to distill, lessons that aren't helping, proven lessons ready to export, and lesson search.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>export_skills</code></h4>
+          <p>Promotes proven lessons to Claude Code skills (.claude/skills/hexacore-*/SKILL.md), reversibly.</p>
+        </div>
       </div>
     </section>
 
@@ -664,6 +680,10 @@ npm start -- scaffold rust payments --workspace ../my_app
 # Quality checks and architecture audit
 npm start -- qa rust --checks typecheck,test --workspace ../my_app
 npm start -- arch --workspace ../my_app
+
+# What HexaCore has learned; export proven lessons as Claude Code skills
+npm start -- lessons --workspace ../my_app
+npm start -- export-skills --workspace ../my_app
 
 # Plan with several slices; undo a checkpoint
 npm start -- orchestrate dotnet orders,invoices --workspace ../my_app
@@ -695,6 +715,10 @@ npm start -- rollback cp_123 --workspace ../my_app</code></pre>
         <div class="card-item">
           <h4>How does State Recovery work after a crash?</h4>
           <p>The AI client invokes <code>resume_session</code> on start. HexaCore reads <code>.hexagen/state.json</code> and returns a briefing: unfinished plans (continue with <code>resume_plan</code>), failing checks, recent ADRs and the last handoff note.</p>
+        </div>
+        <div class="card-item">
+          <h4>How does HexaCore learn from experience?</h4>
+          <p>Every check that goes from red to green becomes an <em>episode</em>. The model distills it into a lesson with <code>record_lesson</code>. When a similar failure appears, HexaCore suggests the lesson; if the check then goes green the lesson is credited, if it stays red it is debited. Proven lessons rank higher and can be exported as Claude Code skills; weak ones are flagged for a rewrite. Evidence comes from real test runs, not from the model grading itself.</p>
         </div>
       </div>
     </section>

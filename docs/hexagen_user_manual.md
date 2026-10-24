@@ -14,6 +14,7 @@ HexaCore Agent is a local MCP server (plus CLI) that your AI client uses as its 
    - Design: `search_knowledge_base`, `define_contract`, `record_decision`.
    - Build: `execute_scaffolding` (preview with `dryRun`) or `orchestrate_task` for several slices.
    - Verify: `run_quality_assurance` (test, typecheck, lint, build) and `check_architecture`.
+   - Learn: when a check goes green, `record_lesson` with the `episodeId` it reports.
    - Close: `record_handoff`.
 
 Every file HexaCore writes is checkpointed; `rollback_changes` undoes it exactly.
@@ -46,6 +47,7 @@ npm test
 - **Orchestration** — persisted plans that survive crashes and can be resumed.
 - **Change control** — checkpoints for every write; all-or-nothing rollback that refuses to clobber later edits.
 - **Memory** — plans, ADR index, QA history and handoff notes in `.hexagen/state.json`.
+- **Learning loop** — resolved failures become episodes, the model distills them into lessons (`.hexagen/skills/`), lessons are suggested when a similar check fails and scored by whether the check then goes green; proven ones are exported as Claude Code skills.
 
 ---
 
@@ -113,6 +115,10 @@ claude mcp add hexacore-agent -- node <path-to-hexacore_agent>/dist/cli/mcp_laun
 | `record_decision(title, context, decision, consequences, alternatives?, status?, tags?)` | Write an ADR to `docs/adr/` and index it. |
 | `define_contract(sliceName, operations[], …)` | Write `contracts/<slice>.openapi.yaml` (OpenAPI 3.1). |
 | `record_handoff(summary, nextSteps?, openQuestions?)` | Leave context for the next session. |
+| `record_lesson(title, problem, solution, example?, stack?, tags?, episodeId?, updateId?)` | Save a lesson to `.hexagen/skills/`; `updateId` rewrites one and keeps its history. Returns near-duplicates. |
+| `rate_lesson(lessonId, helpful?, retire?)` | Explicit feedback on a suggested lesson, or retire it. |
+| `review_lessons(query?, stack?)` | Failures without a lesson, lessons needing review, exportable lessons, best lessons; `query` searches lessons. |
+| `export_skills(lessonIds?)` | Write lessons as `.claude/skills/hexacore-<name>/SKILL.md` (default: every proven lesson not yet exported). |
 
 **Prompts** (slash commands in most clients): `design_feature`, `implement_slice`, `fix_failing_checks`.
 **Resources**: every rule document (`hexacore://knowledge/...`) and the session briefing (`hexacore://session/briefing`).
@@ -134,6 +140,8 @@ npm start -- orchestrate dotnet orders,invoices --checks build,test --workspace 
 npm start -- resume plan_123 --workspace ../my_app
 npm start -- checkpoints --workspace ../my_app
 npm start -- rollback cp_123 --workspace ../my_app
+npm start -- lessons "namespace error" --stack dotnet --workspace ../my_app
+npm start -- export-skills --workspace ../my_app
 ```
 
 After `npm run build`, the same commands are available as `hexacore <command>`.
@@ -155,7 +163,13 @@ Recommended `.gitignore` entries for projects using HexaCore:
 .hexagen/checkpoints/
 .hexagen/telemetry.log
 ```
-Commit `.hexagen/state.json` if you want plans, ADR index and handoffs shared with your team.
+Commit `.hexagen/state.json` if you want plans, ADR index and handoffs shared with your team, and `.hexagen/skills/` + `.hexagen/learning.json` to share learned lessons and their track record.
+
+### How lessons are scored
+- A lesson offered while a check is red is **credited** when that check goes green, and **debited** once if it stays red for 5 runs. `rate_lesson` adds explicit votes.
+- Effectiveness = (helped + 1) / (helped + not helped + 2). It multiplies the lesson's search score.
+- A lesson with 3 or more negatives and an effectiveness below 35% is flagged **needs_review**: rewrite it (`record_lesson` with `updateId`) or retire it.
+- A lesson that is **exportable** has helped at least 3 times with an effectiveness of 70% or more.
 
 ---
 
@@ -166,4 +180,5 @@ Commit `.hexagen/state.json` if you want plans, ADR index and handoffs shared wi
 - **"Refusing to overwrite".** The files exist. Preview with `dryRun: true`, then pass `overwrite: true` if intended — it stays reversible.
 - **Rollback reports conflicts.** Someone edited those files after HexaCore wrote them. Nothing was changed. Review, then `force: true` if you really want the old content back.
 - **"Circuit breaker is OPEN".** The toolchain itself failed repeatedly (crashes or timeouts). Fix the environment; it retries automatically after 30 seconds.
+- **A lesson keeps being suggested but doesn't fit.** `rate_lesson` with `helpful: false`, or `retire: true`. Retired lessons stay on disk but are never offered.
 - **Wrong workspace.** Set `HEXACORE_WORKSPACE` in the MCP server configuration, or pass `--workspace` to the CLI.

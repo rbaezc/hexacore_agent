@@ -1,5 +1,5 @@
-/** bundled = ships with HexaCore; project = the workspace's own rules; decision = an ADR. */
-export type KnowledgeSource = 'bundled' | 'project' | 'decision';
+/** bundled = ships with HexaCore; project = the workspace's own rules; decision = an ADR; lesson = learned from experience. */
+export type KnowledgeSource = 'bundled' | 'project' | 'decision' | 'lesson';
 
 export interface KnowledgeDoc {
   filePath: string;

@@ -12,7 +12,15 @@ export interface KnowledgeRoot {
 }
 
 /** Project rules take precedence over bundled defaults when scores are close; decisions record why. */
-const SOURCE_BOOST: Record<KnowledgeSource, number> = { project: 1.25, decision: 1.15, bundled: 1.0 };
+const SOURCE_BOOST: Record<KnowledgeSource, number> = { project: 1.25, decision: 1.15, lesson: 1.1, bundled: 1.0 };
+
+/** Per-document score multiplier (e.g. lesson effectiveness); 0 hides the document. */
+export type DocumentBoost = (filePath: string) => number;
+
+export interface RagSearchOptions {
+  /** Resolved once per search, so boosts reflect the latest usage evidence. */
+  boostProvider?: () => Promise<DocumentBoost>;
+}
 
 export class RagSearchEngine {
   private readonly roots: () => KnowledgeRoot[];
@@ -23,10 +31,13 @@ export class RagSearchEngine {
    */
   constructor(
     private readonly fileSystem: IFileSystem,
-    rootsOrWorkspace: string | KnowledgeRoot[] | WorkspaceContext = new WorkspaceContext()
+    rootsOrWorkspace: string | KnowledgeRoot[] | (() => KnowledgeRoot[]) | WorkspaceContext = new WorkspaceContext(),
+    private readonly options: RagSearchOptions = {}
   ) {
     if (typeof rootsOrWorkspace === 'string') {
       this.roots = () => [{ dir: rootsOrWorkspace, source: 'bundled' }];
+    } else if (typeof rootsOrWorkspace === 'function') {
+      this.roots = rootsOrWorkspace;
     } else if (Array.isArray(rootsOrWorkspace)) {
       this.roots = () => rootsOrWorkspace;
     } else {
@@ -35,6 +46,7 @@ export class RagSearchEngine {
         { dir: getBundledRulesDir(), source: 'bundled' },
         { dir: ws.hexagenPath('rules'), source: 'project' },
         { dir: path.join(ws.root, 'docs', 'adr'), source: 'decision' },
+        { dir: ws.hexagenPath('skills'), source: 'lesson' },
       ];
     }
   }
@@ -45,10 +57,11 @@ export class RagSearchEngine {
       const indexed = docs.flatMap((doc) => doc.sections.map((section) => ({ doc, section })));
       const stats = HybridRagScorer.buildCorpusStats(indexed.map((i) => i.section));
       const queryTokens = HybridRagScorer.tokenize(query);
+      const boost = (await this.options.boostProvider?.()) ?? (() => 1);
 
       const snippets: RuleSnippet[] = [];
       for (const { doc, section } of indexed) {
-        const score = HybridRagScorer.calculateScore(queryTokens, section.heading, section.content, stats);
+        const score = HybridRagScorer.calculateScore(queryTokens, section.heading, section.content, stats) * boost(doc.filePath);
         if (score > 0) {
           snippets.push({
             sourceDoc: doc.filePath,

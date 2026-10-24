@@ -19,6 +19,8 @@ export interface OrchestratorDeps {
   telemetry?: TelemetryService;
   /** Resolved per run: a patcher exists only while the connected client supports sampling. */
   patcherFactory?: () => CodePatcher | undefined;
+  /** Observer of final QA results (the learning loop); its output is returned to the caller. */
+  onQaResults?: (results: QAResult[], cwd: string) => Promise<Result<unknown, Error>>;
 }
 
 interface RunContext {
@@ -27,6 +29,7 @@ interface RunContext {
   attempts: QAFixAttempt[];
   violations: ArchitectureViolation[];
   nextActions: string[];
+  learning?: unknown;
 }
 
 /**
@@ -123,6 +126,7 @@ export class HexaCoreOrchestrator {
         qa: ctx.qa,
         qaAttempts: ctx.attempts,
         architectureViolations: ctx.violations.slice(0, 20),
+        learning: ctx.learning,
         nextActions: ctx.nextActions,
         message: success ? `Plan ${plan.id} completed: all steps green.` : `Plan ${plan.id} stopped with failures; see steps and nextActions.`,
       });
@@ -192,6 +196,8 @@ export class HexaCoreOrchestrator {
     for (const r of ctx.qa) {
       await this.deps.stateRepo.recordQaRun({ stack: r.stack, check: r.check, status: r.status, failed: r.failedTestsCount, total: r.totalTests, at: new Date().toISOString() });
     }
+    const observed = await this.deps.onQaResults?.(ctx.qa, cwd.value);
+    if (observed?.isSuccess) ctx.learning = observed.value;
     const failed = ctx.qa.filter((r) => r.status === 'failed');
     const skipped = ctx.qa.filter((r) => r.status === 'skipped');
     if (skipped.length) ctx.nextActions.push(`Skipped checks (not verified): ${skipped.map((s) => `${s.check} — ${s.skipReason}`).join('; ')}`);

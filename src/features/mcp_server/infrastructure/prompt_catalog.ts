@@ -52,9 +52,11 @@ ${a.stack ? `Stack: ${a.stack}\n` : ''}
     render: (a) => `Get the ${a.stack} project green.
 
 1. run_quality_assurance with checks ["test","typecheck"] for stack ${a.stack}.
-2. For each failure, read the referenced file and line before changing anything; group failures by root cause.
-3. Fix implementation code. Tests are the specification: do not edit them unless they are demonstrably wrong — and then say so explicitly.
-4. Re-run the checks after each fix. If a change makes things worse, use list_checkpoints/rollback_changes for files HexaCore wrote, or revert your edit.
-5. Finish with check_architecture and a short summary of root causes.`,
+2. If the result has learning.suggestions, read those lessons first: they are fixes that worked in this project before.
+3. For each failure, read the referenced file and line before changing anything; group failures by root cause.
+4. Fix implementation code. Tests are the specification: do not edit them unless they are demonstrably wrong — and then say so explicitly.
+5. Re-run the checks after each fix. If a change makes things worse, use list_checkpoints/rollback_changes for files HexaCore wrote, or revert your edit.
+6. Close the learning loop: rate_lesson for each suggested lesson you used or rejected; when a check is reported as resolved and the root cause could recur, record_lesson with its episodeId (update an existing lesson with updateId instead of duplicating it).
+7. Finish with check_architecture and a short summary of root causes.`,
   },
 ];
