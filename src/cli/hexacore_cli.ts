@@ -33,7 +33,9 @@ const USAGE = `Usage: hexacore <command> [args] [--workspace <dir>]
   orchestrate <stack> <slice[,slice…]> [--description text] [--targetDir d] [--checks …]
   resume <planId>                         Continue a persisted plan
   checkpoints                             List checkpoints
-  rollback <checkpointId> [--force]       Undo a checkpoint`;
+  rollback <checkpointId> [--force]       Undo a checkpoint
+  lessons [query…] [--stack s]            Review learned lessons (or search them)
+  export-skills [lessonId,…]              Export proven lessons as Claude Code skills`;
 
 /** Maps CLI arguments to a tool call. Returns undefined for unknown commands. */
 function toToolCall(command: string, args: string[], flags: Record<string, string | boolean>): { tool: string; input: Record<string, unknown> } | undefined {
@@ -78,6 +80,10 @@ function toToolCall(command: string, args: string[], flags: Record<string, strin
       return { tool: 'list_checkpoints', input: {} };
     case 'rollback':
       return { tool: 'rollback_changes', input: { checkpointId: args[0], force: flags.force === true || undefined } };
+    case 'lessons':
+      return { tool: 'review_lessons', input: { query: args.join(' ') || undefined, stack: str(flags.stack) } };
+    case 'export-skills':
+      return { tool: 'export_skills', input: { lessonIds: list(args[0]) } };
     default:
       return undefined;
   }

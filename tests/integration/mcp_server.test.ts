@@ -28,7 +28,7 @@ describe('HexaCore MCP server (real client over in-memory transport)', () => {
     const { client } = await connect();
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['resume_session', 'execute_scaffolding', 'run_quality_assurance', 'check_architecture', 'orchestrate_task', 'resume_plan', 'rollback_changes', 'record_decision', 'define_contract', 'record_handoff']));
+    expect(names).toEqual(expect.arrayContaining(['resume_session', 'execute_scaffolding', 'run_quality_assurance', 'check_architecture', 'orchestrate_task', 'resume_plan', 'rollback_changes', 'record_decision', 'define_contract', 'record_handoff', 'record_lesson', 'rate_lesson', 'review_lessons', 'export_skills']));
 
     const scaffold = tools.find((t) => t.name === 'execute_scaffolding')!;
     expect((scaffold.inputSchema.properties as any).stack.enum).toEqual(['node']);

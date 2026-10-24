@@ -2,4 +2,4 @@
 export * from './domain/rag_types.js';
 export * from './services/hybrid_rag_engine.js';
 export * from './services/rag_search_engine.js';
-export * from './services/text_analyzer.js';
+export * from '../../shared/domain/text_analyzer.js';

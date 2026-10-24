@@ -50,12 +50,19 @@ HexaCore Agent is a local, governed engineering companion for the 11 stacks of t
 - Classifies each file into slice and role (domain, application, infrastructure, presentation, module, test) per stack layout, extracts imports per language (TS/JS, Dart, Python, Rust, Go, C#, PHP, Ruby, Elixir) and enforces the dependency matrix.
 - HexaCore audits itself in CI (`hexacore arch src`).
 
-## 6. Resilience and Safety
+## 6. Learning Loop
+- **Sensor**: every QA result (tool calls and orchestrated plans) is observed. A red check opens a failure keyed by stack, check and directory, with a masked signature (paths, numbers and values removed) so the same problem is recognized again. Red → green closes it as an *episode*.
+- **Memory**: lessons are markdown in `.hexagen/skills/`, indexed by the RAG engine as a `lesson` source. The index and statistics live in `.hexagen/learning.json`, apart from the project manifest.
+- **Retrieval**: when a check fails, the lessons relevant to that stack are returned with the result. The `learning` slice reaches the search engine through a port (`LessonSearch`) injected by the composition root, not through a direct dependency.
+- **Credit assignment**: offered lessons are credited when the failure resolves, and debited if it stays red for 5 runs. Explicit ratings add to that. A Laplace-smoothed effectiveness multiplies search scores, flags weak lessons for review and gates promotion.
+- **Promotion**: proven lessons are exported as Claude Code skills through a checkpoint, so they are reversible.
+
+## 7. Resilience and Safety
 - Process execution without a shell, allowlisted executables, Windows process-tree kill on timeout.
 - Circuit breaker per `stack:check` bucket that trips only on infrastructure failures.
 - State writes are atomic (temp file + rename) and serialized; checkpoint journals are written before the files they protect.
 
-## 7. Verification Strategy
+## 8. Verification Strategy
 - Unit and integration tests (including a real MCP client over an in-memory transport).
 - `scripts/mcp_smoke.mjs`: the built server over real stdio.
 - `scripts/e2e_stack.mjs`: for each of the 11 stacks, scaffold two slices into a minimal host project and require the stack's own compiler, test runner and HexaCore's architecture audit to pass (CI matrix).

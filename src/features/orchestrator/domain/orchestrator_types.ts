@@ -26,6 +26,8 @@ export interface OrchestrationResult {
   qa: QAResult[];
   qaAttempts: QAFixAttempt[];
   architectureViolations: ArchitectureViolation[];
+  /** Learning-loop observation of the QA results (resolved episodes, suggested lessons). */
+  learning?: unknown;
   /** Concrete follow-ups for the client model when the run isn't fully green. */
   nextActions: string[];
   message: string;

@@ -4,6 +4,7 @@ import type { HexaCoreServices } from '../../../../composition_root.js';
 import { SupportedStack } from '../../../../shared/domain/stack.js';
 import { buildBriefing } from '../../../state_management/index.js';
 import { QACheck } from '../../../quality_assurance/index.js';
+import { LearningSummary, ObservationReport } from '../../../learning/index.js';
 import { ToolDefinition } from '../../domain/mcp_types.js';
 
 export const stackEnum = (stacks: readonly SupportedStack[]) => z.enum(stacks as [SupportedStack, ...SupportedStack[]]);
@@ -28,10 +29,15 @@ export function coreTools(s: HexaCoreServices): ToolDefinition[] {
         });
         if (state.isFailure) return fail(state.error);
         const checkpoints = (await s.journal.list(5)).map(({ id, label, createdAt, status }) => ({ id, label, createdAt, status }));
+        const briefing = buildBriefing(state.value, checkpoints);
+        const learning = await s.learning.summary(stacks);
+        const learned = learning.isSuccess ? learningLines(learning.value) : '';
+        if (learned) briefing.briefing = `${briefing.briefing.replace(/\nNo previous work recorded\.$/, '')}${learned}`;
         return ok({
           workspace: { root: s.workspace.root, stacks: detected },
           autoFixAvailable: Boolean(s.llm.client),
-          ...buildBriefing(state.value, checkpoints),
+          ...briefing,
+          learning: learning.isSuccess ? learning.value : undefined,
         });
       },
     },
@@ -97,10 +103,14 @@ export function coreTools(s: HexaCoreServices): ToolDefinition[] {
           await s.stateRepo.recordQaRun({ stack: r.stack, check: r.check, status: r.status, failed: r.failedTestsCount, total: r.totalTests, at: new Date().toISOString() });
         }
         const verified = results.value.filter((r) => r.status !== 'skipped');
+        const observed = await s.learning.observe(results.value, s.workspace.relative(cwd.value));
+        const learning = observed.isSuccess ? observed.value : undefined;
         return ok({
           passed: verified.length > 0 && verified.every((r) => r.passed),
           cwd: s.workspace.relative(cwd.value),
           results: results.value,
+          learning,
+          nextActions: learningActions(learning),
         });
       },
     },
@@ -114,4 +124,27 @@ export function coreTools(s: HexaCoreServices): ToolDefinition[] {
       handler: async (args: { path?: string }) => s.architecture.check(args.path ?? '.'),
     },
   ];
+}
+
+/** Turns a QA observation into explicit instructions, so the model actually closes the learning loop. */
+function learningActions(report?: ObservationReport): string[] {
+  if (!report) return [];
+  const actions: string[] = [];
+  if (report.suggestions.length) {
+    actions.push(`Learned lessons match these failures (see learning.suggestions): apply them first, then rate_lesson with helpful=true/false.`);
+  }
+  for (const e of report.resolved) {
+    const recurring = e.recurrences ? ` This problem has happened ${e.recurrences + 1} times.` : '';
+    actions.push(`${e.stack} ${e.check} went green (episode ${e.id}: ${e.summary}).${recurring} If the fix generalizes, call record_lesson with episodeId '${e.id}'.`);
+  }
+  return actions;
+}
+
+function learningLines(summary: LearningSummary): string {
+  const lines: string[] = [];
+  if (summary.topLessons.length) lines.push(`Learned lessons (${summary.active} active): ${summary.topLessons.map((l) => `${l.title} [${Math.round(l.effectiveness * 100)}%]`).join('; ')}.`);
+  if (summary.unlearnedEpisodes.length) lines.push(`${summary.unlearnedEpisodes.length} resolved failure(s) have no lesson yet — see review_lessons.`);
+  if (summary.needsReview.length) lines.push(`Lessons that aren't helping: ${summary.needsReview.map((l) => l.title).join('; ')} — rewrite or retire (review_lessons).`);
+  if (summary.exportable.length) lines.push(`${summary.exportable.length} proven lesson(s) can become Claude Code skills (export_skills).`);
+  return lines.length ? `\n${lines.join('\n')}` : '';
 }

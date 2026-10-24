@@ -16,6 +16,10 @@ import { HexaCoreOrchestrator } from './features/orchestrator/services/orchestra
 import { DecisionRecorder } from './features/design/services/decision_recorder.js';
 import { ContractDesigner } from './features/design/services/contract_designer.js';
 import { StackDetector } from './features/mcp_server/infrastructure/stack_detector.js';
+import { LearningRepository } from './features/learning/services/learning_repository.js';
+import { LearningService } from './features/learning/services/learning_service.js';
+import { LessonAuthoring } from './features/learning/services/lesson_authoring.js';
+import { LessonFinder } from './features/learning/services/lesson_finder.js';
 
 export interface HexaCoreServices {
   workspace: WorkspaceContext;
@@ -31,6 +35,8 @@ export interface HexaCoreServices {
   decisions: DecisionRecorder;
   contracts: ContractDesigner;
   stackDetector: StackDetector;
+  learning: LearningService;
+  lessons: LessonAuthoring;
   /** Set by the MCP server once the client proves it supports sampling. */
   llm: { client?: LlmClient };
 }
@@ -54,8 +60,15 @@ export function createHexaCore(options: HexaCoreOptions = {}): HexaCoreServices 
   if (options.telemetryLog !== false) new TelemetryLogWriter(fileSystem, workspace).start();
 
   const stateRepo = new StateRepository(fileSystem, workspace);
-  const ragEngine = new RagSearchEngine(fileSystem, workspace);
   const journal = new ChangeJournal(fileSystem, workspace);
+  const learningRepo = new LearningRepository(fileSystem, workspace);
+  const lessonFinder = new LessonFinder(fileSystem, workspace, async (query, dir, boost) => {
+    const engine = new RagSearchEngine(fileSystem, [{ dir, source: 'lesson' }], { boostProvider: async () => boost });
+    const result = await engine.searchRules(query, 50);
+    return result.isSuccess ? result.value.snippets : [];
+  });
+  const learning = new LearningService(learningRepo, lessonFinder);
+  const ragEngine = new RagSearchEngine(fileSystem, workspace, { boostProvider: () => learning.documentBoost() });
   const scaffolding = new ScaffoldingService(fileSystem, workspace, journal);
   const qaRunner = new QARunnerService(processRunner, fileSystem);
   const qaLoop = new QAAutonomousLoop(qaRunner, options.maxFixIterations ?? 3, journal);
@@ -70,6 +83,7 @@ export function createHexaCore(options: HexaCoreOptions = {}): HexaCoreServices 
     architecture,
     workspace,
     patcherFactory: () => (llm.client ? new LlmCodePatcher(fileSystem, workspace, journal, llm.client) : undefined),
+    onQaResults: (results, cwd) => learning.observe(results, workspace.relative(cwd)),
   });
 
   return {
@@ -86,6 +100,8 @@ export function createHexaCore(options: HexaCoreOptions = {}): HexaCoreServices 
     decisions: new DecisionRecorder(fileSystem, workspace, journal, stateRepo),
     contracts: new ContractDesigner(workspace, journal),
     stackDetector: new StackDetector(fileSystem),
+    learning,
+    lessons: new LessonAuthoring(fileSystem, workspace, journal, learningRepo, lessonFinder),
     llm,
   };
 }

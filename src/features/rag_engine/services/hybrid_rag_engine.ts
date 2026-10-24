@@ -1,4 +1,4 @@
-import { analyze } from './text_analyzer.js';
+import { analyze } from '../../../shared/domain/text_analyzer.js';
 
 export interface CorpusStats {
   totalDocuments: number;
