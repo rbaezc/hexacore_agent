@@ -16,9 +16,9 @@ const SLICES = ['orders', 'user-profile'];
 
 /** setup: shell commands run in the copied project; checks: QA checks that must pass; minTests: across both slices. */
 const STACKS = {
-  node: { setup: ['npm install --no-audit --no-fund --loglevel=error'], checks: ['typecheck', 'test'], minTests: 4 },
-  react: { setup: ['npm install --no-audit --no-fund --loglevel=error'], checks: ['typecheck', 'test'], minTests: 4 },
-  reactnative: { setup: ['npm install --no-audit --no-fund --loglevel=error'], checks: ['typecheck', 'test'], minTests: 4 },
+  node: { setup: ['npm install --no-audit --no-fund --loglevel=error --legacy-peer-deps'], checks: ['typecheck', 'test'], minTests: 4 },
+  react: { setup: ['npm install --no-audit --no-fund --loglevel=error --legacy-peer-deps'], checks: ['typecheck', 'test'], minTests: 4 },
+  reactnative: { setup: ['npm install --no-audit --no-fund --loglevel=error --legacy-peer-deps'], checks: ['typecheck', 'test'], minTests: 4 },
   python: { setup: ['python -m venv .venv', `${venvBin('python')} -m pip install -q fastapi pydantic pytest`], checks: ['build', 'test'], minTests: 4, venv: true },
   go: { setup: [], checks: ['build', 'lint', 'test'], minTests: 4 },
   rust: { setup: [], checks: ['typecheck', 'test'], minTests: 4 },
