@@ -1,36 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { StateRepository } from '../../src/features/state_management/services/state_repository.js';
-import { IFileSystem } from '../../src/shared/infrastructure/file_system.js';
-
-class MockFileSystem implements IFileSystem {
-  private files = new Map<string, string>();
-
-  async readFile(filePath: string): Promise<string> {
-    const data = this.files.get(filePath);
-    if (!data) throw new Error('File not found');
-    return data;
-  }
-
-  async writeFile(filePath: string, content: string): Promise<void> {
-    this.files.set(filePath, content);
-  }
-
-  async exists(filePath: string): Promise<boolean> {
-    return this.files.has(filePath);
-  }
-
-  async ensureDir(): Promise<void> {}
-  async listDirectory(): Promise<string[]> {
-    return Array.from(this.files.keys());
-  }
-}
+import { InMemoryFileSystem } from '../helpers/in_memory_fs.js';
 
 describe('StateRepository', () => {
-  let mockFs: MockFileSystem;
+  let mockFs: InMemoryFileSystem;
   let repository: StateRepository;
 
   beforeEach(() => {
-    mockFs = new MockFileSystem();
+    mockFs = new InMemoryFileSystem();
     repository = new StateRepository(mockFs, '/test');
   });
 
@@ -38,7 +15,8 @@ describe('StateRepository', () => {
     const res = await repository.loadState();
     expect(res.isSuccess).toBe(true);
     if (res.isSuccess) {
-      expect(res.value.metadata.projectName).toBe('HexaCore Application');
+      expect(res.value.metadata.projectName).toBe('test');
+      expect(res.value.plans).toEqual([]);
       expect(res.value.facts).toHaveLength(0);
     }
   });

@@ -1,5 +1,5 @@
-import { IFileSystem } from '../../../shared/infrastructure/file_system.js';
-import { Result, ok, fail } from '../../../shared/domain/result.js';
+import { GeneratedFile } from '../domain/scaffold_types.js';
+import { MAX_FILE_LINES } from '../../../shared/domain/policy.js';
 
 export interface PolicyLintViolation {
   filePath: string;
@@ -7,42 +7,34 @@ export interface PolicyLintViolation {
   message: string;
 }
 
+/**
+ * Pre-write gate for generated files. Whole-repository checks on existing code
+ * (coupling, layer direction) live in the architecture feature (`check_architecture`).
+ */
 export class SlicePolicyLinter {
-  constructor(private readonly fileSystem: IFileSystem) {}
+  static lintGeneratedFiles(files: Pick<GeneratedFile, 'path' | 'content'>[]): PolicyLintViolation[] {
+    const violations: PolicyLintViolation[] = [];
 
-  async lintSlice(sliceDir: string): Promise<Result<PolicyLintViolation[], Error>> {
-    try {
-      const violations: PolicyLintViolation[] = [];
-      const files = await this.fileSystem.listDirectory(sliceDir);
+    for (const file of files) {
+      const lineCount = file.content.split(/\r?\n/).length;
 
-      for (const filePath of files) {
-        if (!filePath.endsWith('.ts') && !filePath.endsWith('.cs') && !filePath.endsWith('.ex')) continue;
-
-        const content = await this.fileSystem.readFile(filePath);
-        const lineCount = content.split(/\r?\n/).length;
-
-        // Rule 1: Max line count check (< 250 lines)
-        if (lineCount > 250) {
-          violations.push({
-            filePath,
-            rule: 'MAX_LINE_COUNT_EXCEEDED',
-            message: `File has ${lineCount} lines, exceeding strict limit of 250 lines.`,
-          });
-        }
-
-        // Rule 2: Cross-slice horizontal import restriction
-        if (content.includes('../../../features/') && !filePath.includes('/tests/')) {
-          violations.push({
-            filePath,
-            rule: 'HORIZONTAL_SLICE_COUPLING',
-            message: 'Direct cross-slice horizontal import detected violating VSA rules.',
-          });
-        }
+      if (lineCount > MAX_FILE_LINES) {
+        violations.push({
+          filePath: file.path,
+          rule: 'MAX_LINE_COUNT_EXCEEDED',
+          message: `File has ${lineCount} lines, exceeding strict limit of ${MAX_FILE_LINES} lines.`,
+        });
       }
 
-      return ok(violations);
-    } catch (error: any) {
-      return fail(new Error(`Policy linter failed: ${error.message}`));
+      if (file.content.includes('../../../features/')) {
+        violations.push({
+          filePath: file.path,
+          rule: 'HORIZONTAL_SLICE_COUPLING',
+          message: 'Direct cross-slice horizontal import detected violating VSA rules.',
+        });
+      }
     }
+
+    return violations;
   }
 }

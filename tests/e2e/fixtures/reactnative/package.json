@@ -1,0 +1,7 @@
+{
+  "name": "e2e-reactnative",
+  "private": true,
+  "type": "module",
+  "dependencies": { "react": "19.1.0", "react-native": "0.81.4" },
+  "devDependencies": { "@types/react": "19.1.10", "typescript": "5.9.3", "vitest": "4.1.11" }
+}

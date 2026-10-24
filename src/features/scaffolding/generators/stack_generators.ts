@@ -1,46 +1,55 @@
-import { GeneratedFile, ScaffoldOptions } from '../domain/scaffold_types.js';
+import { GeneratedFile, ProjectProfile, ScaffoldOptions, SliceBlueprint, SliceNames } from '../domain/scaffold_types.js';
+import { nodeBlueprint } from './node_generator.js';
+import { reactBlueprint } from './react_generator.js';
+import { dotnetBlueprint } from './dotnet_generator.js';
+import { laravelBlueprint } from './laravel_generator.js';
+import { rubyBlueprint } from './ruby_generator.js';
+import { rustBlueprint } from './rust_generator.js';
+import { goBlueprint } from './go_generator.js';
+import { pythonBlueprint } from './python_generator.js';
+import { flutterBlueprint } from './flutter_generator.js';
+import { elixirBlueprint } from './elixir_generator.js';
 
-export function generateSliceFiles(options: ScaffoldOptions): GeneratedFile[] {
-  const { sliceName, stack } = options;
-  const cap = sliceName.charAt(0).toUpperCase() + sliceName.slice(1);
+export const DEFAULT_PROFILE: ProjectProfile = {
+  dotnetNamespace: 'App',
+  dotnetProjectDir: '',
+  elixirApp: 'app',
+  elixirModule: 'App',
+  dartPackage: 'app',
+  jsTestRunner: 'vitest',
+  jsImportExtension: '.js',
+};
 
+export function blueprintFor(stack: ScaffoldOptions['stack'], names: SliceNames, profile: ProjectProfile): SliceBlueprint {
   switch (stack) {
-    case 'rust':
-      return [
-        { path: `src/slices/${sliceName}/mod.rs`, content: `pub struct ${cap}Slice;\nimpl ${cap}Slice {\n    pub fn execute() -> bool { true }\n}\n` },
-      ];
-    case 'python':
-      return [
-        { path: `app/slices/${sliceName}/service.py`, content: `class ${cap}Service:\n    def execute(self) -> bool:\n        return True\n` },
-      ];
-    case 'go':
-      return [
-        { path: `internal/slices/${sliceName}/${sliceName}.go`, content: `package ${sliceName}\n\ntype ${cap}Slice struct{}\n\nfunc (s *${cap}Slice) Execute() bool {\n\treturn true\n}\n` },
-      ];
-    case 'flutter':
-      return [
-        { path: `lib/features/${sliceName}/${sliceName}_widget.dart`, content: `class ${cap}Widget {}\n` },
-      ];
-    case 'ruby':
-      return [
-        { path: `app/services/${sliceName}_service.rb`, content: `class ${cap}Service\n  def call\n    true\n  end\nend\n` },
-      ];
+    case 'node':
+      return nodeBlueprint(names, profile);
+    case 'react':
+      return reactBlueprint(names, profile, false);
+    case 'reactnative':
+      return reactBlueprint(names, profile, true);
     case 'dotnet':
-      return [
-        { path: `Features/${cap}/${cap}Command.cs`, content: `namespace App.Features.${cap};\n\npublic record ${cap}Command(string Id);\n` },
-      ];
-    case 'elixir':
-      return [
-        { path: `lib/app/${sliceName}/${sliceName}_context.ex`, content: `defmodule App.${cap}.${cap}Context do\n  def get_${sliceName}(id), do: {:ok, %{id: id}}\nend\n` },
-      ];
+      return dotnetBlueprint(names, profile);
     case 'laravel':
-      return [
-        { path: `app/Actions/${cap}/${cap}Action.php`, content: `<?php\nnamespace App\\Actions\\${cap};\nclass ${cap}Action { public function execute(): bool { return true; } }\n` },
-      ];
-    default:
-      return [
-        { path: `src/features/${sliceName}/domain/${sliceName}_entity.ts`, content: `export interface ${cap}Entity { id: string; }\n` },
-        { path: `src/features/${sliceName}/application/${sliceName}_handler.ts`, content: `export class ${cap}Handler { async execute() { return true; } }\n` },
-      ];
+      return laravelBlueprint(names);
+    case 'ruby':
+      return rubyBlueprint(names);
+    case 'rust':
+      return rustBlueprint(names);
+    case 'go':
+      return goBlueprint(names);
+    case 'python':
+      return pythonBlueprint(names);
+    case 'flutter':
+      return flutterBlueprint(names, profile);
+    case 'elixir':
+      return elixirBlueprint(names, profile);
   }
+}
+
+/** Flattens a blueprint into the files to write for the requested layer. */
+export function selectFiles(blueprint: SliceBlueprint, layer: ScaffoldOptions['layer'] = 'full', includeTests: boolean = true): GeneratedFile[] {
+  if (layer !== 'full') return blueprint.layers[layer];
+  const { domain, application, infrastructure, presentation } = blueprint.layers;
+  return [...domain, ...application, ...infrastructure, ...presentation, ...blueprint.module, ...(includeTests ? blueprint.tests : [])];
 }

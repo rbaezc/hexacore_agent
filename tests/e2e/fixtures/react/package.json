@@ -1,0 +1,7 @@
+{
+  "name": "e2e-react",
+  "private": true,
+  "type": "module",
+  "dependencies": { "react": "19.2.0" },
+  "devDependencies": { "@types/react": "19.2.2", "typescript": "5.9.3", "vitest": "4.1.11" }
+}

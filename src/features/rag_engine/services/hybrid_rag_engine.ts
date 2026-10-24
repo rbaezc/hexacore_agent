@@ -1,37 +1,71 @@
-import { KnowledgeDoc } from '../domain/rag_types.js';
+import { analyze } from './text_analyzer.js';
+
+export interface CorpusStats {
+  totalDocuments: number;
+  averageDocumentLength: number;
+  /** Number of corpus documents (sections) each term appears in at least once. */
+  documentFrequency: Map<string, number>;
+}
 
 export class HybridRagScorer {
   private static readonly K1 = 1.2;
   private static readonly B = 0.75;
-  private static readonly AVG_DOC_LEN = 150;
+  private static readonly HEADING_MATCH_MULTIPLIER = 3.0;
 
-  static calculateScore(queryTokens: string[], doc: KnowledgeDoc, heading: string, content: string): number {
-    if (queryTokens.length === 0) return 0;
+  /** Accent-folded, stop-word-filtered, stemmed tokens (English + Spanish). */
+  static tokenize(text: string): string[] {
+    return analyze(text);
+  }
 
-    let totalBm25Score = 0;
-    const combined = `${heading} ${content}`.toLowerCase();
-    const words = combined.split(/\s+/).filter(Boolean);
-    const docLen = words.length;
+  /** Computes real corpus-wide document frequency + average length, the inputs real BM25 IDF needs. */
+  static buildCorpusStats(sections: { heading: string; content: string }[]): CorpusStats {
+    const documentFrequency = new Map<string, number>();
+    let totalLength = 0;
 
-    for (const token of queryTokens) {
-      const occurrences = combined.split(token).length - 1;
-      if (occurrences === 0) continue;
-
-      // Inverse Document Frequency (IDF) approximation
-      const idf = Math.log(1 + 10 / Math.max(1, occurrences));
-
-      // BM25 Term Frequency Saturation
-      const numerator = occurrences * (this.K1 + 1);
-      const denominator = occurrences + this.K1 * (1 - this.B + this.B * (docLen / this.AVG_DOC_LEN));
-      const bm25TermScore = idf * (numerator / denominator);
-
-      // Heading Relevance Multiplier (3.0x for title matches)
-      const isHeadingMatch = heading.toLowerCase().includes(token);
-      const multiplier = isHeadingMatch ? 3.0 : 1.0;
-
-      totalBm25Score += bm25TermScore * multiplier;
+    for (const section of sections) {
+      const tokens = this.tokenize(`${section.heading} ${section.content}`);
+      totalLength += tokens.length;
+      for (const token of new Set(tokens)) {
+        documentFrequency.set(token, (documentFrequency.get(token) || 0) + 1);
+      }
     }
 
-    return parseFloat(totalBm25Score.toFixed(3));
+    return {
+      totalDocuments: sections.length,
+      averageDocumentLength: sections.length > 0 ? totalLength / sections.length : 0,
+      documentFrequency,
+    };
+  }
+
+  /** `queryTokens` may be raw words or already-tokenized terms; both are normalized the same way. */
+  static calculateScore(queryTokens: string[], heading: string, content: string, stats: CorpusStats): number {
+    const terms = [...new Set(queryTokens.flatMap((t) => this.tokenize(t)))];
+    if (terms.length === 0 || stats.totalDocuments === 0) return 0;
+
+    const docTokens = this.tokenize(`${heading} ${content}`);
+    const headingTokens = new Set(this.tokenize(heading));
+    const docLen = docTokens.length;
+    const termFrequency = new Map<string, number>();
+    for (const token of docTokens) {
+      termFrequency.set(token, (termFrequency.get(token) || 0) + 1);
+    }
+
+    let totalScore = 0;
+    for (const token of terms) {
+      const tf = termFrequency.get(token) || 0;
+      if (tf === 0) continue;
+
+      // Robertson-Walker IDF over real corpus document frequency (never negative for df <= N).
+      const df = stats.documentFrequency.get(token) || 0;
+      const idf = Math.log(1 + (stats.totalDocuments - df + 0.5) / (df + 0.5));
+
+      const numerator = tf * (this.K1 + 1);
+      const denominator = tf + this.K1 * (1 - this.B + this.B * (docLen / (stats.averageDocumentLength || 1)));
+      const bm25TermScore = idf * (numerator / denominator);
+
+      totalScore += bm25TermScore * (headingTokens.has(token) ? this.HEADING_MATCH_MULTIPLIER : 1.0);
+    }
+
+    return parseFloat(totalScore.toFixed(3));
   }
 }

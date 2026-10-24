@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - name: MCP stdio smoke test (built server)
+        run: node scripts/mcp_smoke.mjs
+      - name: HexaCore audits its own architecture
+        run: npx tsx src/cli/hexacore_cli.ts arch src
+
+  # Proof that generated slices are real code: scaffold into a minimal host project and
+  # require each stack's own compiler + test runner to pass (scripts/e2e_stack.mjs).
+  e2e-generated-code:
+    needs: build-and-test
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [node, react, reactnative, python, go, rust, dotnet, laravel, ruby, elixir, flutter]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+      - run: npm ci
+
+      - if: matrix.stack == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - if: matrix.stack == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - if: matrix.stack == 'rust'
+        uses: dtolnay/rust-toolchain@stable
+      - if: matrix.stack == 'dotnet'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - if: matrix.stack == 'laravel'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer
+      - if: matrix.stack == 'ruby'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - if: matrix.stack == 'elixir'
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27'
+          elixir-version: '1.18'
+      - if: matrix.stack == 'flutter'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Scaffold + compile + test generated slices (${{ matrix.stack }})
+        run: node scripts/e2e_stack.mjs ${{ matrix.stack }}

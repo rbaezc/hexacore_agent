@@ -1,45 +1,22 @@
 # Stack-Specific Architectural Conventions
 
-## 1. Phoenix / Elixir (hexagen)
-- Strict usage of Elixir Contexts (OTP).
-- Test Runner: `mix test`.
-- Concurrency management via GenServer / Task Supervisor when applicable.
+Each HexaGen stack has a detailed rule file in `docs/rules/stacks/` with the exact slice layout HexaCore generates, conventions, good/bad examples and the quality commands HexaCore runs.
 
-## 2. .NET / C# Blazor (nethexagen / hexagensharp)
-- Strict dependency injection (Scoped / Transient / Singleton).
-- Decoupling via `IMediator` interfaces or CQRS.
-- Test Runner: `dotnet test`.
+| Stack | Variant | Rules | Test runner |
+|---|---|---|---|
+| Phoenix / Elixir | hexagen | stacks/elixir.md | `mix test` |
+| .NET / C# | nethexagen / hexagensharp | stacks/dotnet.md | `dotnet test` |
+| Node.js / TypeScript | nodehexagen | stacks/node.md | `npx vitest run` |
+| Laravel / PHP | laravelhexagen | stacks/laravel.md | `php artisan test` |
+| Rust | rusthexagen | stacks/rust.md | `cargo test` |
+| Python / FastAPI | pyhexagen | stacks/python.md | `pytest` |
+| Go | gohexagen | stacks/go.md | `go test ./...` |
+| Flutter / Dart | flutterhexagen | stacks/flutter.md | `flutter test` |
+| Ruby / Rails | rubyhexagen | stacks/ruby.md | `bundle exec rspec` |
+| React | reacthexagen | stacks/react.md | `npx vitest run` |
+| React Native | rnhexagen | stacks/reactnative.md | `npx vitest run` / `npx jest` |
 
-## 3. Node.js / TypeScript (nodehexagen)
-- Decoupled functional components and custom hooks.
-- Strict typing (no `any`).
-- Test Runner: `npx vitest run`.
-
-## 4. Laravel / PHP (laravelhexagen)
-- Usage of Service Layers and Single-Responsibility Action Classes.
-- Eloquent ORM with strict FK constraints and return type hints.
-- Test Runner: `php artisan test`.
-
-## 5. Rust (rusthexagen)
-- Idiomatic error handling with `Result<T, E>`.
-- Zero-cost abstractions and strict memory safety without raw pointers.
-- Test Runner: `cargo test`.
-
-## 6. Python / FastAPI (pyhexagen)
-- Pydantic schema validation and Type Hints on all service functions.
-- Async request handlers.
-- Test Runner: `pytest`.
-
-## 7. Go / Golang (gohexagen)
-- Clean package boundaries under `internal/slices/`.
-- Explicit error checking `if err != nil`.
-- Test Runner: `go test ./...`.
-
-## 8. Flutter / Dart (flutterhexagen)
-- Feature-first folder structure under `lib/features/`.
-- Clean state management.
-- Test Runner: `flutter test`.
-
-## 9. Ruby / Rails (rubyhexagen)
-- Service Objects and Action Classes under `app/services/`.
-- Test Runner: `bundle exec rspec`.
+## Common to All Stacks
+- Vertical slices with four layers plus a composition root (see vertical_slice_rules.md).
+- Repository ports in the domain layer; in-memory adapter first, real adapter later behind the same port.
+- Every slice ships with tests (see testing_conventions.md).
