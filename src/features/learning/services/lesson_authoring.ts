@@ -4,10 +4,11 @@ import { WorkspaceContext } from '../../../shared/infrastructure/workspace.js';
 import { ChangeJournal } from '../../../shared/infrastructure/change_journal.js';
 import { Result, ok, fail } from '../../../shared/domain/result.js';
 import { Lesson, LessonInput } from '../domain/learning_types.js';
-import { isExportable, slugify } from '../domain/lesson_policy.js';
+import { isExportable, slugify, uniqueSlug } from '../domain/lesson_policy.js';
 import { renderLesson, renderSkill } from './lesson_documents.js';
 import { LearningRepository } from './learning_repository.js';
 import { LessonFinder } from './lesson_finder.js';
+import { LessonLibrary, SharedLesson, shareableLessons } from './lesson_library.js';
 
 export interface RecordedLesson {
   lesson: Lesson;
@@ -29,7 +30,9 @@ export class LessonAuthoring {
     private readonly workspace: WorkspaceContext,
     private readonly journal: ChangeJournal,
     private readonly repo: LearningRepository,
-    private readonly finder: LessonFinder
+    private readonly finder: LessonFinder,
+    private readonly library?: LessonLibrary,
+    private readonly projectName: () => string = () => 'project'
   ) {}
 
   async record(input: LessonInput): Promise<Result<RecordedLesson, Error>> {
@@ -109,7 +112,7 @@ export class LessonAuthoring {
     const checkpoint = await this.journal.begin(`Export ${chosen.length} lesson(s) as Claude Code skills`);
     const exported: ExportedSkill[] = [];
     for (const lesson of chosen) {
-      const markdown = await this.fileSystem.readFile(path.resolve(this.workspace.root, lesson.file)).catch(() => undefined);
+      const markdown = await this.fileSystem.readFile(this.finder.pathOf(lesson)).catch(() => undefined);
       if (markdown === undefined) {
         skipped.push(`${lesson.id}: ${lesson.file} is missing`);
         continue;
@@ -129,10 +132,45 @@ export class LessonAuthoring {
     if (saved.isFailure) return fail(saved.error);
     return ok({ exported, checkpointId: checkpoint.id, skipped });
   }
-}
 
-function uniqueSlug(base: string, lessons: Lesson[]): string {
-  let slug = base;
-  for (let i = 2; lessons.some((l) => l.slug === slug); i++) slug = `${base}-${i}`;
-  return slug;
+  /**
+   * Shares project lessons with the user's library so their other projects benefit. Without ids,
+   * shares every proven lesson that is new to the library or was rewritten since it was shared.
+   */
+  async shareLessons(lessonIds?: string[]): Promise<Result<{ shared: SharedLesson[]; skipped: string[]; library: string }, Error>> {
+    if (!this.library) return fail(new Error('The lesson library is disabled (HEXACORE_LIBRARY=off).'));
+    const loaded = await this.repo.load();
+    if (loaded.isFailure) return fail(loaded.error);
+    const lessons = loaded.value.lessons;
+
+    const skipped: string[] = [];
+    const chosen = lessonIds?.length
+      ? lessonIds.flatMap((id) => {
+          const lesson = lessons.find((l) => l.id === id);
+          if (!lesson || lesson.status === 'retired') skipped.push(`${id}: ${lesson ? 'retired' : 'not found'}`);
+          return lesson && lesson.status !== 'retired' ? [lesson] : [];
+        })
+      : shareableLessons(lessons);
+
+    const documents: { lesson: Lesson; markdown: string }[] = [];
+    for (const lesson of chosen) {
+      const markdown = await this.fileSystem.readFile(this.finder.pathOf(lesson)).catch(() => undefined);
+      if (markdown === undefined) skipped.push(`${lesson.id}: ${lesson.file} is missing`);
+      else documents.push({ lesson, markdown });
+    }
+    if (documents.length === 0) return ok({ shared: [], skipped, library: this.library.root });
+
+    const shared = await this.library.share(documents, this.projectName());
+    if (shared.isFailure) return fail(shared.error);
+    const saved = await this.repo.update((s) => {
+      for (const e of shared.value) {
+        const lesson = s.lessons.find((l) => l.id === e.lessonId);
+        if (!lesson) continue;
+        lesson.sharedAs = e.libraryId;
+        lesson.sharedVersion = lesson.version;
+      }
+    });
+    if (saved.isFailure) return fail(saved.error);
+    return ok({ shared: shared.value, skipped, library: this.library.root });
+  }
 }

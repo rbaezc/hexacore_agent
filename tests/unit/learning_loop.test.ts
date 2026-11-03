@@ -1,22 +1,30 @@
 import * as path from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { createTestHexaCore, TEST_ROOT } from '../helpers/test_hexacore.js';
+import { InMemoryFileSystem } from '../helpers/in_memory_fs.js';
 import { createToolRegistry } from '../../src/features/mcp_server/infrastructure/mcp_server_factory.js';
 import { failureSignature, effectiveness, nextStatus, isExportable } from '../../src/features/learning/index.js';
 
 const ctx = { reportProgress: async () => {} };
 
 /** Workspace whose successive test runs report the given failure counts, driven through the MCP tools. */
-function setup(testFailures: number[]) {
-  const t = createTestHexaCore(testFailures);
+function setup(testFailures: number[], options: { fs?: InMemoryFileSystem; root?: string } = {}) {
+  const t = createTestHexaCore(testFailures, options);
   const registry = createToolRegistry(t.services);
   const call = async (tool: string, input: Record<string, unknown> = {}): Promise<any> => {
     const res = await registry.call(tool, input, ctx);
     if (res.isFailure) throw res.error;
     return res.value;
   };
-  return { ...t, call, qa: () => call('run_quality_assurance', { stack: 'node' }) };
+  const root = options.root ?? TEST_ROOT;
+  /** Simulates the model editing the project between QA runs. */
+  const edit = (file: string, content: string) => t.fs.writeFile(path.join(root, file), content);
+  return { ...t, call, edit, qa: () => call('run_quality_assurance', { stack: 'node' }) };
 }
+
+const ENTITY = 'src/features/orders/domain/order.ts';
+const goodFix = 'export function createOrder(total: number) {\n  return { id: crypto.randomUUID(), total };\n}\n';
+const unrelatedFix = 'export function createOrder(total: number) {\n  return { total: Math.round(total) };\n}\n';
 
 const lessonInput = {
   title: 'Generate ids in the domain entity',
@@ -40,7 +48,7 @@ describe('learning loop', () => {
   });
 
   it('records a lesson as reviewable markdown, links the episode, and suggests it when the problem recurs', async () => {
-    const { qa, call, fs } = setup([1, 0, 1, 0]);
+    const { qa, call, fs, edit } = setup([1, 0, 1, 0]);
     await qa();
     const episodeId = (await qa()).learning.resolved[0].id;
 
@@ -54,11 +62,14 @@ describe('learning loop', () => {
     const review = await call('review_lessons');
     expect(review.unlearnedEpisodes).toEqual([]);
 
-    // Same failure again: the lesson is offered, and credited when the check goes green.
+    // Same failure again: the lesson is offered, and credited when the fix does what it says.
     const red = await qa();
     expect(red.learning.suggestions.map((s: any) => s.id)).toEqual([recorded.lesson.id]);
     expect(red.learning.suggestions[0].content).toContain('crypto.randomUUID()');
+    await edit(ENTITY, goodFix);
     const green = await qa();
+    expect(green.learning.resolved[0].attribution).toBe('diff');
+    expect(green.learning.resolved[0].changedFiles).toEqual([ENTITY]);
     expect(green.learning.resolved[0].creditedLessonIds).toEqual([recorded.lesson.id]);
     expect(green.learning.resolved[0].recurrences).toBe(1);
 
@@ -66,6 +77,41 @@ describe('learning loop', () => {
     expect(after.matches[0].effectiveness).toBeCloseTo(2 / 3, 2);
     // Resolved with a lesson on hand: not reported as experience still to distill.
     expect(after.unlearnedEpisodes).toEqual([]);
+  });
+
+  it('credits only the lessons the fix resembles', async () => {
+    const { qa, call, edit } = setup([1, 0, 1, 0]);
+    await edit(ENTITY, unrelatedFix.replace('Math.round(total)', 'total'));
+    const { lesson } = await call('record_lesson', lessonInput);
+
+    // Unrelated fix: offered but not credited, and the model is told it can rate it explicitly.
+    await qa();
+    await edit(ENTITY, unrelatedFix);
+    const unrelated = await qa();
+    expect(unrelated.learning.resolved[0].attribution).toBe('diff');
+    expect(unrelated.learning.resolved[0].creditedLessonIds).toEqual([]);
+    expect(unrelated.learning.resolved[0].unconfirmedLessonIds).toEqual([lesson.id]);
+    expect(unrelated.nextActions.join(' ')).toContain(`doesn't resemble lesson(s) ${lesson.id}`);
+
+    // Green without any change (flaky test): nobody gets credit.
+    await qa();
+    const flaky = await qa();
+    expect(flaky.learning.resolved[0].attribution).toBe('no_change');
+    expect(flaky.learning.resolved[0].creditedLessonIds).toEqual([]);
+
+    const [match] = (await call('review_lessons', { query: 'expected id' })).matches;
+    expect(match.effectiveness).toBe(0.5);
+  });
+
+  it('falls back to correlational credit when the red state was not captured', async () => {
+    const first = setup([1]);
+    const { lesson } = await first.call('record_lesson', lessonInput);
+    await first.qa();
+    // A new process on the same project: the red snapshot is gone.
+    const second = setup([0], { fs: first.fs });
+    const green = await second.qa();
+    expect(green.learning.resolved[0].attribution).toBe('correlational');
+    expect(green.learning.resolved[0].creditedLessonIds).toEqual([lesson.id]);
   });
 
   it('debits a lesson that was offered while the failure stayed red for several runs', async () => {
@@ -129,6 +175,40 @@ describe('learning loop', () => {
 
     await call('rollback_changes', { checkpointId: exported.checkpointId });
     expect(await fs.exists(skillPath)).toBe(false);
+  });
+});
+
+describe('lesson library', () => {
+  it('shares proven lessons with other projects of the same stack and scores them there', async () => {
+    const shop = setup([1]);
+    const { lesson } = await shop.call('record_lesson', { ...lessonInput, stack: 'node' });
+    expect((await shop.call('share_lessons')).shared).toEqual([]);
+    for (let i = 0; i < 3; i++) await shop.call('rate_lesson', { lessonId: lesson.id, helpful: true });
+    expect((await shop.call('resume_session')).briefing).toContain('can be shared with your other projects (share_lessons)');
+
+    const shared = await shop.call('share_lessons');
+    expect(shared.shared).toHaveLength(1);
+    const libraryId = `library:${shared.shared[0].libraryId}`;
+    expect(await shop.fs.readFile(shared.shared[0].file)).toContain('- **Shared from:** workspace');
+    expect((await shop.call('share_lessons')).shared).toEqual([]);
+    // The project that shared it keeps using its own copy, never the library one.
+    expect((await shop.qa()).learning.suggestions.map((s: any) => s.id)).toEqual([lesson.id]);
+
+    // Another project on the same machine, with no lessons of its own.
+    const blog = setup([1, 0], { fs: shop.fs, root: path.resolve('/blog') });
+    expect((await blog.call('resume_session')).briefing).toContain('Lesson library: 1 lesson(s) from your other projects');
+    const red = await blog.qa();
+    expect(red.learning.suggestions).toMatchObject([{ id: libraryId, origin: 'library' }]);
+    await blog.edit(ENTITY, goodFix);
+    const green = await blog.qa();
+    expect(green.learning.resolved[0].creditedLessonIds).toEqual([libraryId]);
+
+    const library = JSON.parse(await shop.fs.readFile(path.resolve('/home/.hexacore/learning.json')));
+    expect(library.lessons[0].stats.helped).toBe(4);
+    expect(library.lessons[0].projects).toEqual(['workspace', 'blog']);
+    const rated = await blog.call('rate_lesson', { lessonId: libraryId, retire: true });
+    expect(rated.status).toBe('retired');
+    expect((await blog.call('review_lessons', { query: 'expected id' })).matches).toEqual([]);
   });
 });
 

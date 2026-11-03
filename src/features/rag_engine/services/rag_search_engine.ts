@@ -42,13 +42,17 @@ export class RagSearchEngine {
       this.roots = () => rootsOrWorkspace;
     } else {
       const ws = rootsOrWorkspace;
-      this.roots = () => [
-        { dir: getBundledRulesDir(), source: 'bundled' },
-        { dir: ws.hexagenPath('rules'), source: 'project' },
-        { dir: path.join(ws.root, 'docs', 'adr'), source: 'decision' },
-        { dir: ws.hexagenPath('skills'), source: 'lesson' },
-      ];
+      this.roots = () => RagSearchEngine.workspaceRoots(ws);
     }
+  }
+
+  static workspaceRoots(ws: WorkspaceContext): KnowledgeRoot[] {
+    return [
+      { dir: getBundledRulesDir(), source: 'bundled' },
+      { dir: ws.hexagenPath('rules'), source: 'project' },
+      { dir: path.join(ws.root, 'docs', 'adr'), source: 'decision' },
+      { dir: ws.hexagenPath('skills'), source: 'lesson' },
+    ];
   }
 
   async searchRules(query: string, topK: number = 3): Promise<Result<SearchResult, Error>> {

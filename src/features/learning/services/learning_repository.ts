@@ -1,30 +1,26 @@
 import { IFileSystem } from '../../../shared/infrastructure/file_system.js';
-import { WorkspaceContext } from '../../../shared/infrastructure/workspace.js';
 import { Result, ok, fail } from '../../../shared/domain/result.js';
 import { LearningStore } from '../domain/learning_types.js';
 
 const MAX_EPISODES = 200;
 
 /**
- * `.hexagen/learning.json`: lesson index + usage stats, episodes and currently open failures.
- * Separate from state.json so frequent stat updates don't churn the project manifest.
+ * Lesson index + usage stats, episodes and currently open failures: `.hexagen/learning.json` for a
+ * project (separate from state.json so frequent stat updates don't churn the project manifest),
+ * `~/.hexacore/learning.json` for the user's library.
  */
 export class LearningRepository {
   private writeQueue: Promise<unknown> = Promise.resolve();
 
   constructor(
     private readonly fileSystem: IFileSystem,
-    private readonly workspace: WorkspaceContext
+    private readonly storePath: () => string
   ) {}
-
-  private get storePath(): string {
-    return this.workspace.hexagenPath('learning.json');
-  }
 
   async load(): Promise<Result<LearningStore, Error>> {
     try {
-      if (!(await this.fileSystem.exists(this.storePath))) return ok(emptyStore());
-      const parsed = JSON.parse(await this.fileSystem.readFile(this.storePath));
+      if (!(await this.fileSystem.exists(this.storePath()))) return ok(emptyStore());
+      const parsed = JSON.parse(await this.fileSystem.readFile(this.storePath()));
       return ok({
         version: 1,
         lessons: Array.isArray(parsed.lessons) ? parsed.lessons : [],
@@ -32,7 +28,7 @@ export class LearningRepository {
         openFailures: Array.isArray(parsed.openFailures) ? parsed.openFailures : [],
       });
     } catch (error: any) {
-      return fail(new Error(`Failed to load .hexagen/learning.json: ${error.message}`));
+      return fail(new Error(`Failed to load ${this.storePath()}: ${error.message}`));
     }
   }
 
@@ -45,10 +41,10 @@ export class LearningRepository {
       const value = mutate(store);
       store.episodes = store.episodes.slice(-MAX_EPISODES);
       try {
-        await this.fileSystem.writeFileAtomic(this.storePath, JSON.stringify(store, null, 2));
+        await this.fileSystem.writeFileAtomic(this.storePath(), JSON.stringify(store, null, 2));
         return ok(value);
       } catch (error: any) {
-        return fail(new Error(`Failed to save .hexagen/learning.json: ${error.message}`));
+        return fail(new Error(`Failed to save ${this.storePath()}: ${error.message}`));
       }
     });
     this.writeQueue = run.catch(() => undefined);

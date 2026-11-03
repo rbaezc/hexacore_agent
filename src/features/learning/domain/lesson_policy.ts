@@ -75,3 +75,9 @@ export function slugify(text: string): string {
       .slice(0, 60) || 'lesson'
   );
 }
+
+export function uniqueSlug(base: string, lessons: { slug: string }[]): string {
+  let slug = base;
+  for (let i = 2; lessons.some((l) => l.slug === slug); i++) slug = `${base}-${i}`;
+  return slug;
+}

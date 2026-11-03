@@ -1,8 +1,7 @@
 import * as path from 'node:path';
 import { IFileSystem } from '../../../shared/infrastructure/file_system.js';
-import { WorkspaceContext } from '../../../shared/infrastructure/workspace.js';
 import { analyze } from '../../../shared/domain/text_analyzer.js';
-import { Lesson, LessonScope, LessonSearch, LessonSuggestion } from '../domain/learning_types.js';
+import { Lesson, LessonLocation, LessonOrigin, LessonScope, LessonSearch, LessonSuggestion } from '../domain/learning_types.js';
 import { effectiveness, rankingBoost } from '../domain/lesson_policy.js';
 import { lessonBody } from './lesson_documents.js';
 
@@ -10,27 +9,40 @@ import { lessonBody } from './lesson_documents.js';
 export class LessonFinder {
   constructor(
     private readonly fileSystem: IFileSystem,
-    private readonly workspace: WorkspaceContext,
-    private readonly search: LessonSearch
+    private readonly location: LessonLocation,
+    private readonly search: LessonSearch,
+    private readonly origin: LessonOrigin = 'project'
   ) {}
 
   skillsDir(): string {
-    return this.workspace.hexagenPath('skills');
+    return this.location.skillsDir();
   }
 
-  /** Search score multiplier per lesson file, for this finder and the main knowledge search. */
-  boostFor(lessons: Lesson[]): (filePath: string) => number {
-    const byPath = new Map(lessons.map((l) => [path.resolve(this.workspace.root, l.file), rankingBoost(l)]));
-    // Documents that aren't indexed lessons (rules, ADRs, hand-written lessons) rank neutrally.
-    return (filePath) => byPath.get(path.resolve(filePath)) ?? 1;
+  pathOf(lesson: Lesson): string {
+    return path.resolve(this.location.root(), lesson.file);
   }
 
-  async find(query: string, lessons: Lesson[], stack: LessonScope | undefined, limit: number): Promise<LessonSuggestion[]> {
-    const candidates = lessons.filter((l) => l.status !== 'retired' && (!stack || l.stack === 'any' || l.stack === stack));
-    if (candidates.length === 0 || !query.trim()) return [];
+  /** Lesson text without its metadata, or '' if the file is gone. */
+  async content(lesson: Lesson): Promise<string> {
+    return lessonBody(await this.fileSystem.readFile(this.pathOf(lesson)).catch(() => ''));
+  }
+
+  /**
+   * Search score multiplier per lesson file, for this finder and the main knowledge search.
+   * Documents that aren't indexed lessons (rules, ADRs, hand-written lessons) get `fallback`.
+   */
+  boostFor(lessons: Lesson[], fallback: (filePath: string) => number = () => 1): (filePath: string) => number {
+    const byPath = new Map(lessons.map((l) => [this.pathOf(l), rankingBoost(l)]));
+    return (filePath) => byPath.get(path.resolve(filePath)) ?? fallback(filePath);
+  }
+
+  /** `exclude`: lesson ids not to offer (e.g. library copies of project lessons). Suggestion ids carry the origin prefix. */
+  async find(query: string, lessons: Lesson[], stack: LessonScope | undefined, limit: number, exclude: ReadonlySet<string> = new Set()): Promise<LessonSuggestion[]> {
+    const candidates = lessons.filter((l) => l.status !== 'retired' && !exclude.has(l.id) && (!stack || l.stack === 'any' || l.stack === stack));
+    if (candidates.length === 0 || !query.trim() || limit <= 0) return [];
 
     const ranked = await this.search(query, this.skillsDir(), this.boostFor(lessons));
-    const byPath = new Map(candidates.map((l) => [path.resolve(this.workspace.root, l.file), l]));
+    const byPath = new Map(candidates.map((l) => [this.pathOf(l), l]));
     const seen = new Set<string>();
     const suggestions: LessonSuggestion[] = [];
     for (const snippet of ranked) {
@@ -39,7 +51,8 @@ export class LessonFinder {
       seen.add(lesson.id);
       const markdown = await this.fileSystem.readFile(snippet.sourceDoc).catch(() => '');
       suggestions.push({
-        id: lesson.id,
+        id: suggestionId(this.origin, lesson.id),
+        origin: this.origin,
         title: lesson.title,
         stack: lesson.stack,
         file: lesson.file,
@@ -61,6 +74,17 @@ export class LessonFinder {
       .filter((s) => s.similarity >= 0.5)
       .sort((a, b) => b.similarity - a.similarity);
   }
+}
+
+const LIBRARY_PREFIX = 'library:';
+
+/** Library lessons are addressed as `library:<id>` wherever project and library ids mix. */
+export function suggestionId(origin: LessonOrigin, id: string): string {
+  return origin === 'library' ? `${LIBRARY_PREFIX}${id}` : id;
+}
+
+export function parseLessonId(id: string): { origin: LessonOrigin; id: string } {
+  return id.startsWith(LIBRARY_PREFIX) ? { origin: 'library', id: id.slice(LIBRARY_PREFIX.length) } : { origin: 'project', id };
 }
 
 export function jaccard(a: Set<string>, b: Set<string>): number {

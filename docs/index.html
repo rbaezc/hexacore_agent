@@ -373,7 +373,7 @@
       <h1 class="hero-title">HexaCore Agent Platform</h1>
       <p class="hero-desc">Complete Official Operating Manual & End-to-End Workflow Guide for the 11-variant HexaGen Suite. Local RAG-governed, event-orchestrated agentic engineering engine.</p>
       <div style="display: flex; gap: 1rem; align-items: center;">
-        <span class="version-tag">v3.1.0</span>
+        <span class="version-tag">v3.2.0</span>
         <span style="color: var(--text-muted); font-size: 0.85rem;">Published for GitHub Pages</span>
       </div>
     </section>
@@ -654,6 +654,10 @@ claude mcp add hexacore-agent -- node &lt;path-to-hexacore_agent&gt;/dist/cli/mc
           <h4><code>export_skills</code></h4>
           <p>Promotes proven lessons to Claude Code skills (.claude/skills/hexacore-*/SKILL.md), reversibly.</p>
         </div>
+        <div class="card-item">
+          <h4><code>share_lessons</code></h4>
+          <p>Shares proven lessons with your other projects through your lesson library (~/.hexacore). Projects with the same stack get them as suggestions, and keep scoring them.</p>
+        </div>
       </div>
     </section>
 
@@ -681,9 +685,10 @@ npm start -- scaffold rust payments --workspace ../my_app
 npm start -- qa rust --checks typecheck,test --workspace ../my_app
 npm start -- arch --workspace ../my_app
 
-# What HexaCore has learned; export proven lessons as Claude Code skills
+# What HexaCore has learned; export proven lessons as skills; share them with your other projects
 npm start -- lessons --workspace ../my_app
 npm start -- export-skills --workspace ../my_app
+npm start -- share-lessons --workspace ../my_app
 
 # Plan with several slices; undo a checkpoint
 npm start -- orchestrate dotnet orders,invoices --workspace ../my_app
@@ -718,7 +723,7 @@ npm start -- rollback cp_123 --workspace ../my_app</code></pre>
         </div>
         <div class="card-item">
           <h4>How does HexaCore learn from experience?</h4>
-          <p>Every check that goes from red to green becomes an <em>episode</em>. The model distills it into a lesson with <code>record_lesson</code>. When a similar failure appears, HexaCore suggests the lesson; if the check then goes green the lesson is credited, if it stays red it is debited. Proven lessons rank higher and can be exported as Claude Code skills; weak ones are flagged for a rewrite. Evidence comes from real test runs, not from the model grading itself.</p>
+          <p>Every check that goes from red to green becomes an <em>episode</em>. The model distills it into a lesson with <code>record_lesson</code>. When a similar failure appears, HexaCore suggests the lesson. It compares the project before and after the fix, and credits the lesson only if the fix actually resembles it; if the check stays red, the lesson is debited. Proven lessons rank higher, can be exported as Claude Code skills and shared with your other projects; weak ones are flagged for a rewrite. Evidence comes from real test runs and real changes, not from the model grading itself.</p>
         </div>
       </div>
     </section>

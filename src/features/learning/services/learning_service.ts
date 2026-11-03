@@ -1,9 +1,11 @@
 import { Result, ok, fail } from '../../../shared/domain/result.js';
 import { SupportedStack } from '../../../shared/domain/stack.js';
-import { Episode, LearningSummary, Lesson, LessonScope, LessonSuggestion, ObservedCheck, OpenFailure } from '../domain/learning_types.js';
+import { Episode, FixAttribution, LearningSummary, Lesson, LessonScope, LessonStats, LessonSuggestion, ObservedCheck, OpenFailure } from '../domain/learning_types.js';
 import { RUNS_BEFORE_NOT_HELPED, describeFailures, effectiveness, failureSignature, isExportable, nextStatus } from '../domain/lesson_policy.js';
 import { LearningRepository } from './learning_repository.js';
-import { LessonFinder } from './lesson_finder.js';
+import { LessonFinder, parseLessonId } from './lesson_finder.js';
+import { LessonLibrary, shareableLessons } from './lesson_library.js';
+import { FixAttributor } from './fix_attributor.js';
 
 const SUGGESTIONS_PER_FAILURE = 3;
 
@@ -15,46 +17,70 @@ export interface ObservedEpisode {
   /** Earlier episodes with the same failure signature: a recurring problem worth a lesson. */
   recurrences: number;
   creditedLessonIds: string[];
+  /** Offered lessons the fix doesn't resemble: not credited, not penalized. */
+  unconfirmedLessonIds: string[];
+  attribution: FixAttribution;
+  changedFiles: string[];
 }
 
 export interface ObservationReport {
   /** Checks that went from red to green in this run: experience to distill with record_lesson. */
   resolved: ObservedEpisode[];
-  /** Learned lessons relevant to the checks that are red now. */
+  /** Learned lessons relevant to the checks that are red now (project lessons first, then the library). */
   suggestions: LessonSuggestion[];
+}
+
+export interface LearningServiceDeps {
+  repo: LearningRepository;
+  finder: LessonFinder;
+  /** Without it, every offered lesson is credited when its failure resolves (correlational). */
+  attributor?: FixAttributor;
+  library?: LessonLibrary;
+  /** Name recorded in the library for lessons this project shares or is helped by. */
+  projectName: () => string;
 }
 
 /**
  * The learning loop's sensor and scorekeeper: watches QA outcomes, turns red→green transitions
- * into episodes, offers relevant lessons while something is red, and credits or debits those
- * lessons by what happened next.
+ * into episodes, offers relevant lessons while something is red, and credits the lessons that the
+ * fix actually resembles (or debits them when the failure stays red).
  */
 export class LearningService {
-  constructor(
-    private readonly repo: LearningRepository,
-    private readonly finder: LessonFinder
-  ) {}
+  constructor(private readonly deps: LearningServiceDeps) {}
+
+  get library(): LessonLibrary | undefined {
+    return this.deps.library;
+  }
 
   /** Search multiplier for the main knowledge search, so proven lessons rank above weak ones. */
   async documentBoost(): Promise<(filePath: string) => number> {
-    const store = await this.repo.load();
-    return this.finder.boostFor(store.isSuccess ? store.value.lessons : []);
+    const store = await this.deps.repo.load();
+    const libraryBoost = this.deps.library ? this.deps.library.finder.boostFor(await this.deps.library.lessons()) : () => 1;
+    return this.deps.finder.boostFor(store.isSuccess ? store.value.lessons : [], libraryBoost);
   }
 
   async observe(checks: ObservedCheck[], cwd: string): Promise<Result<ObservationReport, Error>> {
-    const loaded = await this.repo.load();
+    const loaded = await this.deps.repo.load();
     if (loaded.isFailure) return fail(loaded.error);
+    const { lessons, openFailures } = loaded.value;
 
-    // Retrieval happens outside the store lock; only the bookkeeping below is serialized.
+    // Retrieval, snapshots and attribution happen outside the store lock; only bookkeeping is serialized.
     const offers = new Map<string, LessonSuggestion[]>();
     for (const c of checks.filter((c) => c.status === 'failed')) {
       const query = `${c.stack} ${c.check} ${c.failures.slice(0, 3).map((f) => `${f.testName ?? ''} ${f.errorMessage}`).join(' ')}`;
-      offers.set(keyOf(c, cwd), await this.finder.find(query, loaded.value.lessons, c.stack, SUGGESTIONS_PER_FAILURE));
+      offers.set(keyOf(c, cwd), await this.suggestFor(query, c.stack, SUGGESTIONS_PER_FAILURE, lessons));
     }
+    const { fixes, verdicts } = (await this.deps.attributor?.judge(checks, cwd, openFailures, lessons, keyOf)) ?? { fixes: new Map(), verdicts: new Map() };
 
-    return this.repo.update((store) => {
+    const library: { id: string; change: (stats: LessonStats) => void }[] = [];
+    const update = await this.deps.repo.update((store) => {
       const now = new Date().toISOString();
       const report: ObservationReport = { resolved: [], suggestions: [] };
+      const apply = (id: string, change: (stats: LessonStats) => void) => {
+        const ref = parseLessonId(id);
+        if (ref.origin === 'library') library.push({ id: ref.id, change });
+        else adjust(store.lessons, id, (l) => change(l.stats));
+      };
 
       for (const c of checks) {
         if (c.status === 'skipped') continue;
@@ -69,19 +95,21 @@ export class LearningService {
           current.signature = failureSignature(c.check, c.failures);
           if (current.runs >= RUNS_BEFORE_NOT_HELPED && current.offeredLessonIds.length) {
             // Offered for several runs and still red: count it against those lessons, once.
-            for (const id of current.offeredLessonIds) adjust(store.lessons, id, (l) => l.stats.notHelped++);
+            for (const id of current.offeredLessonIds) apply(id, (s) => s.notHelped++);
             current.offeredLessonIds = [];
           }
           for (const s of offered) {
-            adjust(store.lessons, s.id, (l) => {
-              l.stats.retrieved++;
-              l.stats.lastUsedAt = now;
+            apply(s.id, (stats) => {
+              stats.retrieved++;
+              stats.lastUsedAt = now;
             });
             if (!current.offeredLessonIds.includes(s.id)) current.offeredLessonIds.push(s.id);
           }
           if (!open) store.openFailures.push(current);
           report.suggestions.push(...offered.filter((s) => !report.suggestions.some((r) => r.id === s.id)));
         } else if (open) {
+          const fix = fixes.get(key);
+          const verdict = verdicts.get(key) ?? { attribution: 'correlational' as const, credited: open.offeredLessonIds };
           const episode: Episode = {
             id: `ep_${Date.now()}_${store.episodes.length + 1}`,
             stack: open.stack,
@@ -93,8 +121,11 @@ export class LearningService {
             resolvedAt: now,
             runsToResolve: open.runs,
             offeredLessonIds: open.offeredLessonIds,
+            changedFiles: fix?.changedFiles.slice(0, 50),
+            attribution: verdict.attribution,
+            creditedLessonIds: verdict.credited,
           };
-          for (const id of open.offeredLessonIds) adjust(store.lessons, id, (l) => l.stats.helped++);
+          for (const id of verdict.credited) apply(id, (s) => s.helped++);
           const recurrences = store.episodes.filter((e) => e.signature === episode.signature).length;
           store.episodes.push(episode);
           store.openFailures = store.openFailures.filter((o) => o.key !== key);
@@ -104,17 +135,27 @@ export class LearningService {
             check: episode.check,
             summary: describeFailures(episode.failures),
             recurrences,
-            creditedLessonIds: open.offeredLessonIds,
+            creditedLessonIds: verdict.credited,
+            unconfirmedLessonIds: open.offeredLessonIds.filter((id) => !verdict.credited.includes(id)),
+            attribution: verdict.attribution,
+            changedFiles: episode.changedFiles ?? [],
           });
         }
       }
       return report;
     });
+    if (update.isSuccess) await this.deps.library?.record(library, this.deps.projectName());
+    return update;
   }
 
   /** Explicit feedback from the model or the user; also the way to retire a lesson. */
   async rate(lessonId: string, input: { helpful?: boolean; retire?: boolean }): Promise<Result<Lesson & { effectiveness: number }, Error>> {
-    const updated = await this.repo.update((store) => {
+    const ref = parseLessonId(lessonId);
+    if (ref.origin === 'library') {
+      if (!this.deps.library) return fail(new Error('The lesson library is disabled.'));
+      return this.deps.library.rate(ref.id, input);
+    }
+    const updated = await this.deps.repo.update((store) => {
       const lesson = store.lessons.find((l) => l.id === lessonId);
       if (!lesson) return undefined;
       if (input.helpful === true) lesson.stats.helped++;
@@ -128,13 +169,20 @@ export class LearningService {
   }
 
   async suggest(query: string, stack: LessonScope | undefined, limit: number): Promise<Result<LessonSuggestion[], Error>> {
-    const loaded = await this.repo.load();
+    const loaded = await this.deps.repo.load();
     if (loaded.isFailure) return fail(loaded.error);
-    return ok(await this.finder.find(query, loaded.value.lessons, stack, limit));
+    return ok(await this.suggestFor(query, stack, limit, loaded.value.lessons));
+  }
+
+  /** Project lessons take precedence; the library fills the remaining slots. */
+  private async suggestFor(query: string, stack: LessonScope | undefined, limit: number, lessons: Lesson[]): Promise<LessonSuggestion[]> {
+    const own = await this.deps.finder.find(query, lessons, stack, limit);
+    const shared = this.deps.library ? await this.deps.library.find(query, stack, limit - own.length, lessons) : [];
+    return [...own, ...shared];
   }
 
   async summary(stacks: readonly SupportedStack[] = []): Promise<Result<LearningSummary, Error>> {
-    const loaded = await this.repo.load();
+    const loaded = await this.deps.repo.load();
     if (loaded.isFailure) return fail(loaded.error);
     const { lessons, episodes } = loaded.value;
     const live = lessons.filter((l) => l.status !== 'retired');
@@ -158,6 +206,8 @@ export class LearningService {
         .sort((a, b) => effectiveness(b.stats) - effectiveness(a.stats) || b.stats.helped - a.stats.helped)
         .slice(0, 5)
         .map((l) => ({ ...score(l), stack: l.stack })),
+      shareable: this.deps.library ? shareableLessons(lessons).map(score) : [],
+      library: this.deps.library ? await this.deps.library.summary(stacks) : undefined,
     });
   }
 }

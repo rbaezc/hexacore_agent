@@ -1,3 +1,5 @@
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { IFileSystem, NodeFileSystem } from './shared/infrastructure/file_system.js';
 import { IProcessRunner, NodeProcessRunner } from './shared/infrastructure/process_runner.js';
 import { ResilientProcessRunner } from './shared/infrastructure/circuit_breaker.js';
@@ -20,6 +22,10 @@ import { LearningRepository } from './features/learning/services/learning_reposi
 import { LearningService } from './features/learning/services/learning_service.js';
 import { LessonAuthoring } from './features/learning/services/lesson_authoring.js';
 import { LessonFinder } from './features/learning/services/lesson_finder.js';
+import { LessonLibrary } from './features/learning/services/lesson_library.js';
+import { WorkspaceSnapshots } from './features/learning/services/workspace_snapshots.js';
+import { FixAttributor } from './features/learning/services/fix_attributor.js';
+import { LessonSearch } from './features/learning/domain/learning_types.js';
 
 export interface HexaCoreServices {
   workspace: WorkspaceContext;
@@ -49,6 +55,16 @@ export interface HexaCoreOptions {
   maxFixIterations?: number;
   /** Persist telemetry spans to .hexagen/telemetry.log (default true). */
   telemetryLog?: boolean;
+  /**
+   * The user's cross-project lesson library (default $HEXACORE_HOME or ~/.hexacore;
+   * HEXACORE_LIBRARY=off disables it). false disables it too.
+   */
+  lessonLibrary?: string | false;
+}
+
+function libraryRoot(option: HexaCoreOptions['lessonLibrary']): string | undefined {
+  if (option === false || (option === undefined && process.env.HEXACORE_LIBRARY === 'off')) return undefined;
+  return path.resolve(option ?? process.env.HEXACORE_HOME ?? path.join(os.homedir(), '.hexacore'));
 }
 
 export function createHexaCore(options: HexaCoreOptions = {}): HexaCoreServices {
@@ -61,14 +77,28 @@ export function createHexaCore(options: HexaCoreOptions = {}): HexaCoreServices 
 
   const stateRepo = new StateRepository(fileSystem, workspace);
   const journal = new ChangeJournal(fileSystem, workspace);
-  const learningRepo = new LearningRepository(fileSystem, workspace);
-  const lessonFinder = new LessonFinder(fileSystem, workspace, async (query, dir, boost) => {
+  const learningRepo = new LearningRepository(fileSystem, () => workspace.hexagenPath('learning.json'));
+  const lessonSearch: LessonSearch = async (query, dir, boost) => {
     const engine = new RagSearchEngine(fileSystem, [{ dir, source: 'lesson' }], { boostProvider: async () => boost });
     const result = await engine.searchRules(query, 50);
     return result.isSuccess ? result.value.snippets : [];
+  };
+  const lessonFinder = new LessonFinder(fileSystem, { root: () => workspace.root, skillsDir: () => workspace.hexagenPath('skills') }, lessonSearch);
+  const libraryDir = libraryRoot(options.lessonLibrary);
+  const library = libraryDir ? new LessonLibrary(fileSystem, libraryDir, lessonSearch) : undefined;
+  const projectName = () => path.basename(workspace.root);
+  const learning = new LearningService({
+    repo: learningRepo,
+    finder: lessonFinder,
+    attributor: new FixAttributor(new WorkspaceSnapshots(fileSystem, workspace), lessonFinder, library),
+    library,
+    projectName,
   });
-  const learning = new LearningService(learningRepo, lessonFinder);
-  const ragEngine = new RagSearchEngine(fileSystem, workspace, { boostProvider: () => learning.documentBoost() });
+  const ragEngine = new RagSearchEngine(
+    fileSystem,
+    () => [...RagSearchEngine.workspaceRoots(workspace), ...(library ? [{ dir: library.finder.skillsDir(), source: 'lesson' as const }] : [])],
+    { boostProvider: () => learning.documentBoost() }
+  );
   const scaffolding = new ScaffoldingService(fileSystem, workspace, journal);
   const qaRunner = new QARunnerService(processRunner, fileSystem);
   const qaLoop = new QAAutonomousLoop(qaRunner, options.maxFixIterations ?? 3, journal);
@@ -101,7 +131,7 @@ export function createHexaCore(options: HexaCoreOptions = {}): HexaCoreServices 
     contracts: new ContractDesigner(workspace, journal),
     stackDetector: new StackDetector(fileSystem),
     learning,
-    lessons: new LessonAuthoring(fileSystem, workspace, journal, learningRepo, lessonFinder),
+    lessons: new LessonAuthoring(fileSystem, workspace, journal, learningRepo, lessonFinder, library, projectName),
     llm,
   };
 }

@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-11-03
+
+### Added
+
+- **Lesson library across projects**: `share_lessons` (CLI `share-lessons`) copies proven lessons to `~/.hexacore/` (`HEXACORE_HOME`; `HEXACORE_LIBRARY=off` disables it).
+  - Other projects with the same stack get them as suggestions after their own lessons (`library:<id>`), and `search_knowledge_base` indexes them too.
+  - Outcomes in every project score them, and `rate_lesson` accepts library ids.
+  - `resume_session` reports lessons ready to share and the library lessons that apply.
+- **Credit by evidence**: the project is snapshotted when a check turns red and diffed when it turns green.
+  - Only offered lessons the fix resembles are credited; the others are reported as `unconfirmedLessonIds`.
+  - A check that goes green without any change credits nobody (`attribution: no_change`).
+  - Without a red snapshot, credit falls back to the previous correlational rule.
+- Resolved episodes report `changedFiles`, and `nextActions` mention them so the model knows what the fix touched.
+- `scripts/e2e_learning.mjs` (`npm run e2e:learning`) and the CI job `e2e-learning-loop`: the whole loop on a real Go project, across two projects.
+
+### Changed
+
+- `LearningRepository` and `LessonFinder` take their location, so the same classes serve the project and the library. `LearningService` takes its dependencies as an object.
+- `RagSearchEngine.workspaceRoots()` exposes the default knowledge roots.
+
 ## [3.1.0] - 2026-10-24
 
 ### Added

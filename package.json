@@ -1,6 +1,6 @@
 {
   "name": "hexacore-agent",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "HexaCore Agent - governed Vertical Slice Architecture companion (MCP server + CLI) for 11 stacks",
   "main": "dist/index.js",
   "type": "module",
@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "e2e": "node scripts/e2e_stack.mjs"
+    "e2e": "node scripts/e2e_stack.mjs",
+    "e2e:learning": "npm run build && node scripts/e2e_learning.mjs"
   },
   "keywords": [],
   "author": "HexaCore Architecture Team",
