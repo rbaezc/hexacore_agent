@@ -4,6 +4,8 @@ import { IProcessRunner, ProcessExecutionResult } from '../../src/shared/infrast
 import { InMemoryFileSystem } from './in_memory_fs.js';
 
 export const TEST_ROOT = path.resolve('/workspace');
+/** The user's lesson library in tests (shared by every TEST workspace on the same file system). */
+export const TEST_LIBRARY = path.resolve('/home/.hexacore');
 
 /** A vitest JSON report with the given number of failures (written where the runner was told to). */
 export function vitestReport(failures: number): string {
@@ -29,10 +31,13 @@ export function vitestReport(failures: number): string {
  * Full HexaCore wired to an in-memory node/vitest workspace. `testFailures` yields the failure
  * count for each successive test run (the last value repeats).
  */
-export function createTestHexaCore(testFailures: number[] = [0]): { services: HexaCoreServices; fs: InMemoryFileSystem; runs: () => number } {
-  const fs = new InMemoryFileSystem({
-    [path.join(TEST_ROOT, 'package.json')]: JSON.stringify({ devDependencies: { vitest: '^4' } }),
-  });
+export function createTestHexaCore(
+  testFailures: number[] = [0],
+  options: { fs?: InMemoryFileSystem; root?: string } = {}
+): { services: HexaCoreServices; fs: InMemoryFileSystem; runs: () => number } {
+  const root = options.root ?? TEST_ROOT;
+  const fs = options.fs ?? new InMemoryFileSystem({});
+  fs.files.set(path.join(root, 'package.json'), JSON.stringify({ devDependencies: { vitest: '^4' } }));
   let runs = 0;
   const runner: IProcessRunner = {
     async runCommand(_cmd, args = []): Promise<ProcessExecutionResult> {
@@ -43,6 +48,6 @@ export function createTestHexaCore(testFailures: number[] = [0]): { services: He
       return failures ? { stdout: '', stderr: '', exitCode: 1, success: false, failureKind: 'exit_code' } : { stdout: '', stderr: '', exitCode: 0, success: true };
     },
   };
-  const services = createHexaCore({ workspaceRoot: TEST_ROOT, fileSystem: fs, processRunner: runner, telemetryLog: false });
+  const services = createHexaCore({ workspaceRoot: root, fileSystem: fs, processRunner: runner, telemetryLog: false, lessonLibrary: TEST_LIBRARY });
   return { services, fs, runs: () => runs };
 }

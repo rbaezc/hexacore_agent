@@ -135,7 +135,11 @@ function learningActions(report?: ObservationReport): string[] {
   }
   for (const e of report.resolved) {
     const recurring = e.recurrences ? ` This problem has happened ${e.recurrences + 1} times.` : '';
-    actions.push(`${e.stack} ${e.check} went green (episode ${e.id}: ${e.summary}).${recurring} If the fix generalizes, call record_lesson with episodeId '${e.id}'.`);
+    const touched = e.changedFiles.length ? ` The fix changed ${e.changedFiles.slice(0, 5).join(', ')}${e.changedFiles.length > 5 ? '…' : ''}.` : '';
+    actions.push(`${e.stack} ${e.check} went green (episode ${e.id}: ${e.summary}).${touched}${recurring} If the fix generalizes, call record_lesson with episodeId '${e.id}'.`);
+    if (e.unconfirmedLessonIds.length) {
+      actions.push(`The fix doesn't resemble lesson(s) ${e.unconfirmedLessonIds.join(', ')}, so they were not credited. If one did help, rate_lesson with helpful=true.`);
+    }
   }
   return actions;
 }
@@ -146,5 +150,7 @@ function learningLines(summary: LearningSummary): string {
   if (summary.unlearnedEpisodes.length) lines.push(`${summary.unlearnedEpisodes.length} resolved failure(s) have no lesson yet — see review_lessons.`);
   if (summary.needsReview.length) lines.push(`Lessons that aren't helping: ${summary.needsReview.map((l) => l.title).join('; ')} — rewrite or retire (review_lessons).`);
   if (summary.exportable.length) lines.push(`${summary.exportable.length} proven lesson(s) can become Claude Code skills (export_skills).`);
+  if (summary.shareable.length) lines.push(`${summary.shareable.length} proven lesson(s) can be shared with your other projects (share_lessons).`);
+  if (summary.library?.lessons) lines.push(`Lesson library: ${summary.library.lessons} lesson(s) from your other projects apply here; they are suggested when a check fails.`);
   return lines.length ? `\n${lines.join('\n')}` : '';
 }

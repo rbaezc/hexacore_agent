@@ -36,6 +36,11 @@ export interface Lesson {
   stats: LessonStats;
   /** Set once exported as a Claude Code skill. */
   exportedTo?: string;
+  /** Project lessons: the library lesson it was shared as, and the version shared. */
+  sharedAs?: string;
+  sharedVersion?: number;
+  /** Library lessons: projects that contributed it or were helped by it. */
+  projects?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -84,6 +89,26 @@ export interface Episode {
   lessonId?: string;
   /** Lessons that were offered before it was resolved. */
   offeredLessonIds: string[];
+  /** Files the fix changed, when a snapshot from the red run was available. */
+  changedFiles?: string[];
+  /** How the offered lessons were judged (see FixAttribution). */
+  attribution?: FixAttribution;
+  /** Offered lessons whose content matches the fix (or all of them, without a diff). */
+  creditedLessonIds?: string[];
+}
+
+/**
+ * diff: the fix was compared with each offered lesson; only matching lessons are credited.
+ * correlational: no snapshot of the red state (e.g. the server restarted); every offered lesson is credited.
+ * no_change: the check went green without any file changing (flaky or environmental); nobody is credited.
+ */
+export type FixAttribution = 'diff' | 'correlational' | 'no_change';
+
+/** What changed between the red run and the green run. */
+export interface FixDiff {
+  changedFiles: string[];
+  /** Added and removed lines of the changed files. */
+  changedText: string;
 }
 
 export interface LearningStore {
@@ -108,8 +133,12 @@ export interface LessonInput {
   updateId?: string;
 }
 
+/** project = this workspace's lessons; library = the user's lessons shared from other projects. */
+export type LessonOrigin = 'project' | 'library';
+
 export interface LessonSuggestion {
   id: string;
+  origin: LessonOrigin;
   title: string;
   stack: LessonScope;
   file: string;
@@ -125,6 +154,17 @@ export interface LearningSummary {
   unlearnedEpisodes: { id: string; stack: SupportedStack; check: string; summary: string; recurrences: number }[];
   exportable: { id: string; title: string; effectiveness: number }[];
   topLessons: { id: string; title: string; stack: LessonScope; effectiveness: number }[];
+  /** Proven project lessons not yet shared with the library, or changed since they were shared. */
+  shareable: { id: string; title: string; effectiveness: number }[];
+  /** Library lessons available to this project's stacks. */
+  library?: { lessons: number; topLessons: { id: string; title: string; stack: LessonScope; effectiveness: number }[] };
+}
+
+/** Where a set of lessons lives: the project (`.hexagen/`) or the user's library (`~/.hexacore/`). */
+export interface LessonLocation {
+  /** Base that `Lesson.file` is relative to. */
+  root: () => string;
+  skillsDir: () => string;
 }
 
 /**

@@ -54,8 +54,9 @@ HexaCore Agent is a local, governed engineering companion for the 11 stacks of t
 - **Sensor**: every QA result (tool calls and orchestrated plans) is observed. A red check opens a failure keyed by stack, check and directory, with a masked signature (paths, numbers and values removed) so the same problem is recognized again. Red → green closes it as an *episode*.
 - **Memory**: lessons are markdown in `.hexagen/skills/`, indexed by the RAG engine as a `lesson` source. The index and statistics live in `.hexagen/learning.json`, apart from the project manifest.
 - **Retrieval**: when a check fails, the lessons relevant to that stack are returned with the result. The `learning` slice reaches the search engine through a port (`LessonSearch`) injected by the composition root, not through a direct dependency.
-- **Credit assignment**: offered lessons are credited when the failure resolves, and debited if it stays red for 5 runs. Explicit ratings add to that. A Laplace-smoothed effectiveness multiplies search scores, flags weak lessons for review and gates promotion.
+- **Credit assignment**: the project's text files are snapshotted when a failure is first seen red, and diffed when it goes green (`WorkspaceSnapshots`, no VCS needed). `FixAttributor` credits only the offered lessons whose terms the changed lines and files share; a green without changes credits nobody; without a red snapshot it falls back to crediting every offered lesson. Lessons that stay red for 5 runs are debited, and explicit ratings add to that. A Laplace-smoothed effectiveness multiplies search scores, flags weak lessons for review and gates promotion.
 - **Promotion**: proven lessons are exported as Claude Code skills through a checkpoint, so they are reversible.
+- **Library**: proven lessons are shared to the user's library (`~/.hexacore/`), a second `LearningRepository` + `LessonFinder` pair. Project lessons are offered first and the library fills the remaining slots, skipping the library copies of the project's own lessons. Outcomes in any project update the library stats.
 
 ## 7. Resilience and Safety
 - Process execution without a shell, allowlisted executables, Windows process-tree kill on timeout.
@@ -66,3 +67,4 @@ HexaCore Agent is a local, governed engineering companion for the 11 stacks of t
 - Unit and integration tests (including a real MCP client over an in-memory transport).
 - `scripts/mcp_smoke.mjs`: the built server over real stdio.
 - `scripts/e2e_stack.mjs`: for each of the 11 stacks, scaffold two slices into a minimal host project and require the stack's own compiler, test runner and HexaCore's architecture audit to pass (CI matrix).
+- `scripts/e2e_learning.mjs`: break and fix a generated Go slice with the real `go test`, and require the episode, the lesson, diff-backed credit, skill export and the library to work across two projects (CI).

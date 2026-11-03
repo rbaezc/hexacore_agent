@@ -47,7 +47,7 @@ npm test
 - **Orchestration** — persisted plans that survive crashes and can be resumed.
 - **Change control** — checkpoints for every write; all-or-nothing rollback that refuses to clobber later edits.
 - **Memory** — plans, ADR index, QA history and handoff notes in `.hexagen/state.json`.
-- **Learning loop** — resolved failures become episodes, the model distills them into lessons (`.hexagen/skills/`), lessons are suggested when a similar check fails and scored by whether the check then goes green; proven ones are exported as Claude Code skills.
+- **Learning loop** — resolved failures become episodes, the model distills them into lessons (`.hexagen/skills/`), lessons are suggested when a similar check fails and credited when the fix that turns the check green matches them; proven ones are exported as Claude Code skills and can be shared with your other projects through the lesson library (`~/.hexacore/`).
 
 ---
 
@@ -119,6 +119,7 @@ claude mcp add hexacore-agent -- node <path-to-hexacore_agent>/dist/cli/mcp_laun
 | `rate_lesson(lessonId, helpful?, retire?)` | Explicit feedback on a suggested lesson, or retire it. |
 | `review_lessons(query?, stack?)` | Failures without a lesson, lessons needing review, exportable lessons, best lessons; `query` searches lessons. |
 | `export_skills(lessonIds?)` | Write lessons as `.claude/skills/hexacore-<name>/SKILL.md` (default: every proven lesson not yet exported). |
+| `share_lessons(lessonIds?)` | Copy proven lessons to your lesson library so your other projects get them (default: every proven lesson new to the library or rewritten since it was shared). |
 
 **Prompts** (slash commands in most clients): `design_feature`, `implement_slice`, `fix_failing_checks`.
 **Resources**: every rule document (`hexacore://knowledge/...`) and the session briefing (`hexacore://session/briefing`).
@@ -142,6 +143,7 @@ npm start -- checkpoints --workspace ../my_app
 npm start -- rollback cp_123 --workspace ../my_app
 npm start -- lessons "namespace error" --stack dotnet --workspace ../my_app
 npm start -- export-skills --workspace ../my_app
+npm start -- share-lessons --workspace ../my_app
 ```
 
 After `npm run build`, the same commands are available as `hexacore <command>`.
@@ -166,10 +168,20 @@ Recommended `.gitignore` entries for projects using HexaCore:
 Commit `.hexagen/state.json` if you want plans, ADR index and handoffs shared with your team, and `.hexagen/skills/` + `.hexagen/learning.json` to share learned lessons and their track record.
 
 ### How lessons are scored
-- A lesson offered while a check is red is **credited** when that check goes green, and **debited** once if it stays red for 5 runs. `rate_lesson` adds explicit votes.
+- When a check turns red, HexaCore snapshots the project's text files (dependencies, build output and `.hexagen/` are left out). When it turns green, it compares the two states.
+- A lesson offered while the check was red is **credited** only if the fix resembles it: at least 2 of its terms, and at least 15% of them, appear in the changed lines or file names. Offered lessons the fix doesn't resemble are reported as unconfirmed: no credit and no penalty. `rate_lesson` fixes a missed match.
+- A check that goes green without any file changing (a flaky test, an environment fix) credits nobody.
+- Without a snapshot of the red state (the server restarted, or the CLI, which runs each command in a new process), every offered lesson is credited, as before (`attribution: correlational`).
+- A lesson is **debited** once if its failure stays red for 5 runs. `rate_lesson` adds explicit votes.
 - Effectiveness = (helped + 1) / (helped + not helped + 2). It multiplies the lesson's search score.
 - A lesson with 3 or more negatives and an effectiveness below 35% is flagged **needs_review**: rewrite it (`record_lesson` with `updateId`) or retire it.
-- A lesson that is **exportable** has helped at least 3 times with an effectiveness of 70% or more.
+- A lesson that is **exportable** has helped at least 3 times with an effectiveness of 70% or more. The same bar applies to sharing it.
+
+### Lesson library (your other projects)
+- `share_lessons` copies proven lessons to `~/.hexacore/lessons/` (index and stats in `~/.hexacore/learning.json`). `HEXACORE_HOME` moves it; `HEXACORE_LIBRARY=off` disables it.
+- In another project, library lessons for its stacks are suggested after the project's own lessons, with ids `library:<id>`. Their outcomes update the library stats, and `rate_lesson` accepts library ids.
+- Sharing again after a rewrite updates the library copy; its stats keep accumulating across projects.
+- Several HexaCore servers write the library with atomic writes, but without a cross-process lock: two simultaneous updates can drop one of them.
 
 ---
 

@@ -7,7 +7,7 @@ import { ToolDefinition } from '../../domain/mcp_types.js';
 
 const scopeEnum = z.enum(['any', ...SUPPORTED_STACKS] as [string, ...string[]]);
 
-/** The learning loop: distill experience into lessons, score them by outcome, promote proven ones to skills. */
+/** The learning loop: distill experience into lessons, score them by outcome, promote proven ones to skills and to the library. */
 export function learningTools(s: HexaCoreServices): ToolDefinition[] {
   return [
     {
@@ -32,7 +32,7 @@ export function learningTools(s: HexaCoreServices): ToolDefinition[] {
       name: 'rate_lesson',
       title: 'Rate a lesson',
       description:
-        'Feedback on a lesson that was suggested to you: helpful=true if it led to the fix, false if it was wrong or irrelevant. retire=true stops suggesting it (it stays on disk). Ratings and automatic outcomes drive ranking and export.',
+        'Feedback on a lesson that was suggested to you (project lesson ids, or library:<id> for lessons from your other projects): helpful=true if it led to the fix, false if it was wrong or irrelevant. retire=true stops suggesting it (it stays on disk). Ratings and automatic outcomes drive ranking and export.',
       schema: () =>
         z.object({
           lessonId: z.string(),
@@ -48,7 +48,7 @@ export function learningTools(s: HexaCoreServices): ToolDefinition[] {
       name: 'review_lessons',
       title: 'Review learned lessons',
       description:
-        'Maintenance view of what HexaCore has learned: resolved failures without a lesson yet (with recurrence counts), lessons whose evidence says they are not helping (rewrite with record_lesson updateId, or retire), proven lessons ready to export as skills, and the most effective lessons. With query, searches lessons only.',
+        'Maintenance view of what HexaCore has learned: resolved failures without a lesson yet (with recurrence counts), lessons whose evidence says they are not helping (rewrite with record_lesson updateId, or retire), proven lessons ready to export as skills or share with your other projects, the most effective lessons, and the lesson library from your other projects. With query, searches project and library lessons.',
       schema: () =>
         z.object({
           query: z.string().optional().describe('Search lessons, e.g. "dotnet namespace error"'),
@@ -72,6 +72,14 @@ export function learningTools(s: HexaCoreServices): ToolDefinition[] {
         'Writes lessons as Claude Code skills (.claude/skills/hexacore-<name>/SKILL.md) so the client loads them natively. Without lessonIds exports every proven lesson (helped at least 3 times, at least 70% effective) not exported yet. Reversible through rollback_changes.',
       schema: () => z.object({ lessonIds: z.array(z.string()).optional() }),
       handler: async (args: { lessonIds?: string[] }) => s.lessons.exportSkills(args.lessonIds),
+    },
+    {
+      name: 'share_lessons',
+      title: 'Share lessons with your other projects',
+      description:
+        "Copies proven project lessons to your lesson library (~/.hexacore/lessons/, or $HEXACORE_HOME), so your other projects with the same stack get them as suggestions after their own lessons. Without lessonIds shares every proven lesson that is new to the library or was rewritten since it was shared. Library lessons are scored by outcomes in every project that uses them.",
+      schema: () => z.object({ lessonIds: z.array(z.string()).optional() }),
+      handler: async (args: { lessonIds?: string[] }) => s.lessons.shareLessons(args.lessonIds),
     },
   ];
 }
