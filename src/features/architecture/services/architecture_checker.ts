@@ -3,7 +3,7 @@ import { IFileSystem, DEFAULT_IGNORED_DIRS } from '../../../shared/infrastructur
 import { WorkspaceContext } from '../../../shared/infrastructure/workspace.js';
 import { Result, ok, fail } from '../../../shared/domain/result.js';
 import { MAX_FILE_LINES } from '../../../shared/domain/policy.js';
-import { ALLOWED_DEPENDENCIES, ArchitectureReport, ArchitectureViolation, SourceLocation } from '../domain/architecture_types.js';
+import { ALLOWED_DEPENDENCIES, ArchitectureConfig, ArchitectureReport, ArchitectureViolation, SourceLocation } from '../domain/architecture_types.js';
 import { classifyPath, isOutOfTreeTest, languageOf, normalizeSlice } from './source_classifier.js';
 import { extractImports } from './import_extractor.js';
 
@@ -18,7 +18,8 @@ export class ArchitectureChecker {
     private readonly workspace: WorkspaceContext = new WorkspaceContext()
   ) {}
 
-  async check(subPath: string = '.'): Promise<Result<ArchitectureReport, Error>> {
+  /** strict: warnings fail the audit too (for CI, once a codebase is clean). */
+  async check(subPath: string = '.', options: { strict?: boolean } = {}): Promise<Result<ArchitectureReport, Error>> {
     const scope = this.workspace.resolveInside(subPath);
     if (scope.isFailure) return fail(scope.error);
 
@@ -31,6 +32,8 @@ export class ArchitectureChecker {
 
       const elixir = await this.elixirNaming();
       const dartPackage = await this.dartPackage();
+      const config = await this.config();
+      const composition = new Set(config.compositionSlices);
 
       const located = sources.map((f) => ({ ...f, location: this.locate(f.rel, elixir?.app) }));
       const knownSlices = new Set(located.map((f) => f.location?.slice).filter((s): s is string => Boolean(s)));
@@ -60,7 +63,7 @@ export class ArchitectureChecker {
           knownSlices,
         });
         for (const ref of imports) {
-          const violation = this.evaluate(file.rel, file.location, ref.target, ref.line, ref.specifier);
+          const violation = this.evaluate(file.rel, file.location, ref.target, ref.line, ref.specifier, composition);
           if (violation) violations.push(violation);
         }
       }
@@ -70,21 +73,23 @@ export class ArchitectureChecker {
         root: this.workspace.relative(scope.value),
         filesScanned: sources.length,
         slices: [...knownSlices].sort(),
-        passed: errorCount === 0,
+        passed: errorCount === 0 && !(options.strict && violations.length > errorCount),
         errorCount,
         warningCount: violations.length - errorCount,
         violations: violations.slice(0, MAX_REPORTED),
         truncated: violations.length > MAX_REPORTED || all.length > MAX_FILES,
+        compositionSlices: config.compositionSlices,
       });
     } catch (error: any) {
       return fail(new Error(`Architecture check failed: ${error.message}`));
     }
   }
 
-  private evaluate(file: string, from: SourceLocation, to: SourceLocation, line: number, specifier: string): ArchitectureViolation | undefined {
+  private evaluate(file: string, from: SourceLocation, to: SourceLocation, line: number, specifier: string, composition: ReadonlySet<string>): ArchitectureViolation | undefined {
     if (from.slice !== to.slice) {
-      // Reaching another slice's public entry point is a smell; reaching its internals breaks isolation.
+      // Reaching another slice's public entry point is a smell (expected in composition slices); reaching its internals breaks isolation.
       const internal = to.role !== 'module';
+      if (!internal && composition.has(from.slice)) return undefined;
       return {
         rule: 'CROSS_SLICE_COUPLING',
         severity: internal ? 'error' : 'warning',
@@ -126,6 +131,18 @@ export class ArchitectureChecker {
     if (!app) return undefined;
     const module = mix.match(/defmodule\s+([\w.]+)\.MixProject/)?.[1] ?? app.split('_').map((w) => w[0].toUpperCase() + w.slice(1)).join('');
     return { app, module };
+  }
+
+  private async config(): Promise<ArchitectureConfig> {
+    const raw = await this.readRoot('hexacore.json');
+    if (!raw.trim()) return { compositionSlices: [] };
+    try {
+      const slices = JSON.parse(raw)?.architecture?.compositionSlices;
+      return { compositionSlices: Array.isArray(slices) ? slices.filter((s): s is string => typeof s === 'string').map(normalizeSlice) : [] };
+    } catch {
+      // A broken config must not hide violations: audit with the strict defaults.
+      return { compositionSlices: [] };
+    }
   }
 
   private async dartPackage(): Promise<string | undefined> {

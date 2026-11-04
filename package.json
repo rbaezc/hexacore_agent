@@ -1,40 +1,42 @@
 {
   "name": "hexacore-agent",
-  "version": "3.2.0",
-  "description": "HexaCore Agent - governed Vertical Slice Architecture companion (MCP server + CLI) for 11 stacks",
-  "main": "dist/index.js",
-  "type": "module",
-  "scripts": {
-    "build": "tsc",
-    "start": "tsx src/cli/hexacore_cli.ts",
-    "mcp": "tsx src/cli/mcp_launcher.ts",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
-    "e2e": "node scripts/e2e_stack.mjs",
-    "e2e:learning": "npm run build && node scripts/e2e_learning.mjs"
+  "version": "3.3.0",
+  "description": "Verified, reversible, self-improving Vertical Slice Architecture companion for AI coding agents: an MCP server + CLI for 11 stacks",
+  "mcpName": "io.github.rbaezc/hexacore-agent",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "claude",
+    "claude-code",
+    "ai-agent",
+    "vertical-slice-architecture",
+    "clean-architecture",
+    "scaffolding",
+    "code-quality",
+    "learning"
+  ],
+  "homepage": "https://rbaezc.github.io/hexacore_agent/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rbaezc/hexacore_agent.git"
   },
-  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/rbaezc/hexacore_agent/issues"
+  },
   "author": "HexaCore Architecture Team",
   "license": "MIT",
-  "devDependencies": {
-    "@types/cross-spawn": "^6.0.6",
-    "@types/node": "^22.0.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.5.0",
-    "vitest": "^4.1.11"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.5.0",
-    "cross-spawn": "^7.0.6",
-    "zod": "^4.4.3"
-  },
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
+    "hexacore-agent": "dist/cli/mcp_launcher.js",
     "hexacore": "dist/cli/hexacore_cli.js",
     "hexacore-mcp": "dist/cli/mcp_launcher.js"
   },
   "files": [
     "dist",
+    "!dist/**/*.map",
     "docs/rules",
     "README.md",
     "LICENSE",
@@ -42,5 +44,33 @@
   ],
   "engines": {
     "node": ">=20"
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "tsc",
+    "prepublishOnly": "npm run clean && npm run build && npm test && node scripts/mcp_smoke.mjs",
+    "start": "tsx src/cli/hexacore_cli.ts",
+    "mcp": "tsx src/cli/mcp_launcher.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "e2e": "node scripts/e2e_stack.mjs",
+    "e2e:learning": "npm run build && node scripts/e2e_learning.mjs",
+    "e2e:pack": "npm run build && node scripts/pack_smoke.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.5.0",
+    "cross-spawn": "^7.0.6",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/cross-spawn": "^6.0.6",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^4.1.11"
   }
 }

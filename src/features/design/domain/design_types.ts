@@ -1,3 +1,6 @@
+import { Result } from '../../../shared/domain/result.js';
+import { DecisionRecord } from '../../../shared/domain/decision_record.js';
+
 export interface DecisionInput {
   title: string;
   context: string;
@@ -7,6 +10,11 @@ export interface DecisionInput {
   status?: 'proposed' | 'accepted';
   /** Slices/areas the decision applies to, for retrieval. */
   tags?: string[];
+}
+
+/** Port to the project state: where recorded decisions are indexed for briefings. */
+export interface DecisionIndex {
+  addDecision(record: DecisionRecord): Promise<Result<unknown, Error>>;
 }
 
 export type FieldType = 'string' | 'integer' | 'number' | 'boolean' | 'datetime';

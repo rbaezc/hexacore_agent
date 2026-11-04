@@ -34,6 +34,17 @@ export interface ArchitectureReport {
   warningCount: number;
   violations: ArchitectureViolation[];
   truncated: boolean;
+  /** Slices declared as composition in hexacore.json: they may use other slices' public modules. */
+  compositionSlices: string[];
+}
+
+/**
+ * `hexacore.json` at the project root, e.g. `{ "architecture": { "compositionSlices": ["orchestrator"] } }`.
+ * Composition slices (orchestrators, API gateways, tool layers) exist to coordinate other slices,
+ * so importing their public modules is expected there; reaching their internals is still an error.
+ */
+export interface ArchitectureConfig {
+  compositionSlices: string[];
 }
 
 /** Which roles each role may depend on inside its own slice. module/test/unknown are unrestricted. */

@@ -373,7 +373,7 @@
       <h1 class="hero-title">HexaCore Agent Platform</h1>
       <p class="hero-desc">Complete Official Operating Manual & End-to-End Workflow Guide for the 11-variant HexaGen Suite. Local RAG-governed, event-orchestrated agentic engineering engine.</p>
       <div style="display: flex; gap: 1rem; align-items: center;">
-        <span class="version-tag">v3.2.0</span>
+        <span class="version-tag">v3.3.0</span>
         <span style="color: var(--text-muted); font-size: 0.85rem;">Published for GitHub Pages</span>
       </div>
     </section>
@@ -411,11 +411,11 @@
     <!-- Quick Start Section -->
     <section id="quickstart" class="section-card">
       <h2 class="section-title">2. One-Time Core Setup Guide</h2>
-      <p class="section-p">Follow these simple steps to install and build HexaCore Agent on your local machine:</p>
+      <p class="section-p">Nothing to build: your AI client starts the published package with <code>npx -y hexacore-agent</code> (Node 20+). To work from source instead:</p>
       
       <div class="code-block">
         <div class="code-header">
-          <span>HexaCore Engine Setup</span>
+          <span>HexaCore Engine Setup (from source)</span>
           <span>Bash / Powershell</span>
         </div>
         <pre><code># 1. Clone & navigate to your hexacore_agent directory
@@ -577,14 +577,16 @@ npm test</code></pre>
         <pre><code>{
   "mcpServers": {
     "hexacore-agent": {
-      "command": "node",
-      "args": ["&lt;path-to-hexacore_agent&gt;/dist/cli/mcp_launcher.js"]
+      "command": "npx",
+      "args": ["-y", "hexacore-agent"]
     }
   }
 }
 
 # Claude Code:
-claude mcp add hexacore-agent -- node &lt;path-to-hexacore_agent&gt;/dist/cli/mcp_launcher.js</code></pre>
+claude mcp add hexacore-agent -- npx -y hexacore-agent
+
+# From source: node &lt;path-to-hexacore_agent&gt;/dist/cli/mcp_launcher.js</code></pre>
       </div>
     </section>
 
@@ -612,7 +614,7 @@ claude mcp add hexacore-agent -- node &lt;path-to-hexacore_agent&gt;/dist/cli/mc
         </div>
         <div class="card-item">
           <h4><code>check_architecture</code></h4>
-          <p>Audits cross-slice coupling, layer dependency direction and the 250-line limit across the workspace.</p>
+          <p>Audits cross-slice coupling, layer dependency direction and the 250-line limit across the workspace. Composition slices can be declared in hexacore.json; <code>strict</code> fails on warnings too.</p>
         </div>
         <div class="card-item">
           <h4><code>orchestrate_task</code></h4>
@@ -657,6 +659,18 @@ claude mcp add hexacore-agent -- node &lt;path-to-hexacore_agent&gt;/dist/cli/mc
         <div class="card-item">
           <h4><code>share_lessons</code></h4>
           <p>Shares proven lessons with your other projects through your lesson library (~/.hexacore). Projects with the same stack get them as suggestions, and keep scoring them.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>merge_lessons</code></h4>
+          <p>Folds near-duplicate lessons into one, keeping their evidence and history. Unused lessons also lose weight over time.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>remember_preference</code></h4>
+          <p>User model: remembers how you like to work (style, workflow, conventions), for every project or just this one. It opens every session briefing, next to the habits HexaCore observes.</p>
+        </div>
+        <div class="card-item">
+          <h4><code>forget_preference</code></h4>
+          <p>Forgets a preference, the observed habits, or everything HexaCore knows about how you work. Local files only.</p>
         </div>
       </div>
     </section>
@@ -720,6 +734,10 @@ npm start -- rollback cp_123 --workspace ../my_app</code></pre>
         <div class="card-item">
           <h4>How does State Recovery work after a crash?</h4>
           <p>The AI client invokes <code>resume_session</code> on start. HexaCore reads <code>.hexagen/state.json</code> and returns a briefing: unfinished plans (continue with <code>resume_plan</code>), failing checks, recent ADRs and the last handoff note.</p>
+        </div>
+        <div class="card-item">
+          <h4>Does HexaCore adapt to me?</h4>
+          <p>Yes. When you state a lasting preference, the model saves it with <code>remember_preference</code>; HexaCore also observes habits from how you use it (your stacks, the checks you run, whether you preview scaffolding, how often you roll back). Both open every <code>resume_session</code> briefing. Everything stays in local files (<code>~/.hexacore/profile.json</code>), credential-like text is refused, and <code>forget_preference</code> removes it.</p>
         </div>
         <div class="card-item">
           <h4>How does HexaCore learn from experience?</h4>

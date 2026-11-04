@@ -28,6 +28,12 @@ export function renderLesson(input: LessonInput, meta: { stack: string; version:
     .join('\n');
 }
 
+/** Text of one `## heading` section of a lesson document ('' if absent). */
+export function lessonSection(markdown: string, heading: string): string {
+  const match = markdown.match(new RegExp(`^## ${heading}\\s*\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, 'm'));
+  return match ? match[1].trim() : '';
+}
+
 /** The parts of a lesson document below its metadata list (what a skill or a prompt needs). */
 export function lessonBody(markdown: string): string {
   const start = markdown.search(/^## /m);

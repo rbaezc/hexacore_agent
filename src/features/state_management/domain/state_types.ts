@@ -65,14 +65,8 @@ export interface ExecutionPlan {
 }
 
 /** Index entry of an Architecture Decision Record stored under docs/adr/. */
-export interface DecisionRecord {
-  id: string;
-  number: number;
-  title: string;
-  status: 'proposed' | 'accepted' | 'superseded' | 'deprecated';
-  file: string;
-  date: string;
-}
+export type { DecisionRecord } from '../../../shared/domain/decision_record.js';
+import type { DecisionRecord } from '../../../shared/domain/decision_record.js';
 
 /** What one session leaves for the next: where it stopped and what comes next. */
 export interface HandoffNote {

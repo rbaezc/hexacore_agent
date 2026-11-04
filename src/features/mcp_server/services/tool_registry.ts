@@ -3,8 +3,13 @@ import { Result, fail } from '../../../shared/domain/result.js';
 import { ListedTool, ToolContext, ToolDefinition } from '../domain/mcp_types.js';
 import { SUPPORTED_STACKS, SupportedStack } from '../../../shared/domain/stack.js';
 
+/** Notified after every validated call (e.g. to learn the user's habits); must not throw. */
+export type ToolCallObserver = (event: { tool: string; args: Record<string, unknown>; ok: boolean }) => Promise<void>;
+
 export class ToolRegistry {
   private readonly tools = new Map<string, ToolDefinition>();
+
+  constructor(private readonly observer?: ToolCallObserver) {}
 
   registerTool(tool: ToolDefinition): void {
     this.tools.set(tool.name, tool);
@@ -39,10 +44,13 @@ export class ToolRegistry {
       const issues = parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ');
       return fail(new Error(`Invalid arguments for '${name}': ${issues}`));
     }
+    let result: Result<unknown, Error>;
     try {
-      return await tool.handler(parsed.data, ctx);
+      result = await tool.handler(parsed.data, ctx);
     } catch (error: any) {
-      return fail(new Error(`Tool '${name}' crashed: ${error?.message ?? String(error)}`));
+      result = fail(new Error(`Tool '${name}' crashed: ${error?.message ?? String(error)}`));
     }
+    await this.observer?.({ tool: name, args: parsed.data as Record<string, unknown>, ok: result.isSuccess }).catch(() => undefined);
+    return result;
   }
 }

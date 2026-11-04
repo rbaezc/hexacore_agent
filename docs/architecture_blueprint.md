@@ -48,7 +48,8 @@ HexaCore Agent is a local, governed engineering companion for the 11 stacks of t
 
 ## 5. Architecture Audit
 - Classifies each file into slice and role (domain, application, infrastructure, presentation, module, test) per stack layout, extracts imports per language (TS/JS, Dart, Python, Rust, Go, C#, PHP, Ruby, Elixir) and enforces the dependency matrix.
-- HexaCore audits itself in CI (`hexacore arch src`).
+- Composition slices declared in `hexacore.json` (`architecture.compositionSlices`) may import other slices' public modules; internal imports stay errors. `--strict` fails on warnings too.
+- HexaCore audits itself in CI (`hexacore arch src --strict`), with `orchestrator` and `mcp_server` as its composition slices.
 
 ## 6. Learning Loop
 - **Sensor**: every QA result (tool calls and orchestrated plans) is observed. A red check opens a failure keyed by stack, check and directory, with a masked signature (paths, numbers and values removed) so the same problem is recognized again. Red → green closes it as an *episode*.
@@ -58,13 +59,21 @@ HexaCore Agent is a local, governed engineering companion for the 11 stacks of t
 - **Promotion**: proven lessons are exported as Claude Code skills through a checkpoint, so they are reversible.
 - **Library**: proven lessons are shared to the user's library (`~/.hexacore/`), a second `LearningRepository` + `LessonFinder` pair. Project lessons are offered first and the library fills the remaining slots, skipping the library copies of the project's own lessons. Outcomes in any project update the library stats.
 
-## 7. Resilience and Safety
+- **Maintenance**: search weight decays for lessons idle more than 60 days (to 0.6 at a year). Near-duplicates (Jaccard ≥ 0.5 over title + problem) are reported in pairs, and `merge_lessons` folds them, moving evidence, episodes and open-failure offers to the survivor.
+
+## 7. User Model
+- **Sensor**: the tool registry notifies an observer after every validated call. `user_profile` folds the calls that say something about habits into counters in `~/.hexacore/profile.json`: stacks, QA check sets, scaffold previews and writes, writes and rollbacks.
+- **Model**: habits are derived from the counters only above evidence thresholds. Stated preferences are remembered by the client model (`remember_preference`), in user or project scope.
+- **Use**: preferences and habits open the `resume_session` briefing, so the model adapts before acting. Local files only; credential-like text is refused; everything can be forgotten.
+
+## 8. Resilience and Safety
 - Process execution without a shell, allowlisted executables, Windows process-tree kill on timeout.
 - Circuit breaker per `stack:check` bucket that trips only on infrastructure failures.
 - State writes are atomic (temp file + rename) and serialized; checkpoint journals are written before the files they protect.
 
-## 8. Verification Strategy
+## 9. Verification Strategy
 - Unit and integration tests (including a real MCP client over an in-memory transport).
 - `scripts/mcp_smoke.mjs`: the built server over real stdio.
 - `scripts/e2e_stack.mjs`: for each of the 11 stacks, scaffold two slices into a minimal host project and require the stack's own compiler, test runner and HexaCore's architecture audit to pass (CI matrix).
+- `scripts/pack_smoke.mjs`: `npm pack`, install the tarball into an empty project, run the MCP smoke test against the installed launcher and the CLI against its bundled rules; also checks `server.json` (MCP registry) matches `package.json` (CI, Linux and Windows).
 - `scripts/e2e_learning.mjs`: break and fix a generated Go slice with the real `go test`, and require the episode, the lesson, diff-backed credit, skill export and the library to work across two projects (CI).

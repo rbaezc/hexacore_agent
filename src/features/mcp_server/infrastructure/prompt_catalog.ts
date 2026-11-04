@@ -20,7 +20,7 @@ export const PROMPTS: PromptDefinition[] = [
 
 Requirement: ${a.requirement}
 ${a.stack ? `Stack: ${a.stack}\n` : ''}
-1. Call resume_session to load project context, then search_knowledge_base for the rules that apply.
+1. Call resume_session to load project context (follow "How this user works" in it), then search_knowledge_base for the rules that apply.
 2. Model the domain: entities, their invariants, and the vertical slices (one per use case or cohesive capability). Name each slice.
 3. For each slice exposed over HTTP, call define_contract with its operations.
 4. For every non-obvious choice (persistence, boundaries between slices, sync vs. events), call record_decision with the alternatives you rejected.

@@ -5,6 +5,7 @@ import { SupportedStack } from '../../../../shared/domain/stack.js';
 import { buildBriefing } from '../../../state_management/index.js';
 import { QACheck } from '../../../quality_assurance/index.js';
 import { LearningSummary, ObservationReport } from '../../../learning/index.js';
+import { UserProfile } from '../../../user_profile/index.js';
 import { ToolDefinition } from '../../domain/mcp_types.js';
 
 export const stackEnum = (stacks: readonly SupportedStack[]) => z.enum(stacks as [SupportedStack, ...SupportedStack[]]);
@@ -31,13 +32,15 @@ export function coreTools(s: HexaCoreServices): ToolDefinition[] {
         const checkpoints = (await s.journal.list(5)).map(({ id, label, createdAt, status }) => ({ id, label, createdAt, status }));
         const briefing = buildBriefing(state.value, checkpoints);
         const learning = await s.learning.summary(stacks);
-        const learned = learning.isSuccess ? learningLines(learning.value) : '';
-        if (learned) briefing.briefing = `${briefing.briefing.replace(/\nNo previous work recorded\.$/, '')}${learned}`;
+        const profile = await s.profile.profile();
+        const extra = `${profile.isSuccess ? profileLines(profile.value) : ''}${learning.isSuccess ? learningLines(learning.value) : ''}`;
+        if (extra) briefing.briefing = `${briefing.briefing.replace(/\nNo previous work recorded\.$/, '')}${extra}`;
         return ok({
           workspace: { root: s.workspace.root, stacks: detected },
           autoFixAvailable: Boolean(s.llm.client),
           ...briefing,
           learning: learning.isSuccess ? learning.value : undefined,
+          profile: profile.isSuccess ? profile.value : undefined,
         });
       },
     },
@@ -118,10 +121,14 @@ export function coreTools(s: HexaCoreServices): ToolDefinition[] {
       name: 'check_architecture',
       title: 'Check VSA architecture',
       description:
-        'Read-only audit of the codebase against the VSA rules: cross-slice coupling, layer dependency direction (domain must not depend on outer layers…) and the 250-line file limit. Run after changing code.',
-      schema: () => z.object({ path: z.string().optional().describe('Sub-directory to audit, relative to the workspace (default: whole workspace)') }),
+        'Read-only audit of the codebase against the VSA rules: cross-slice coupling, layer dependency direction (domain must not depend on outer layers…) and the 250-line file limit. Slices listed in hexacore.json architecture.compositionSlices may use other slices\' public modules. Run after changing code.',
+      schema: () =>
+        z.object({
+          path: z.string().optional().describe('Sub-directory to audit, relative to the workspace (default: whole workspace)'),
+          strict: z.boolean().optional().describe('Fail on warnings too'),
+        }),
       annotations: { readOnlyHint: true },
-      handler: async (args: { path?: string }) => s.architecture.check(args.path ?? '.'),
+      handler: async (args: { path?: string; strict?: boolean }) => s.architecture.check(args.path ?? '.', { strict: args.strict }),
     },
   ];
 }
@@ -144,12 +151,22 @@ function learningActions(report?: ObservationReport): string[] {
   return actions;
 }
 
+/** How this user works, first in the briefing so the model adapts before doing anything. */
+function profileLines(profile: UserProfile): string {
+  const lines = [
+    ...profile.preferences.map((p) => `- ${p.text}${p.scope === 'project' ? ' (this project)' : ''}`),
+    ...profile.habits.map((h) => `- ${h.text} (observed)`),
+  ];
+  return lines.length ? `\nHow this user works (follow these unless told otherwise):\n${lines.join('\n')}` : '';
+}
+
 function learningLines(summary: LearningSummary): string {
   const lines: string[] = [];
   if (summary.topLessons.length) lines.push(`Learned lessons (${summary.active} active): ${summary.topLessons.map((l) => `${l.title} [${Math.round(l.effectiveness * 100)}%]`).join('; ')}.`);
   if (summary.unlearnedEpisodes.length) lines.push(`${summary.unlearnedEpisodes.length} resolved failure(s) have no lesson yet — see review_lessons.`);
   if (summary.needsReview.length) lines.push(`Lessons that aren't helping: ${summary.needsReview.map((l) => l.title).join('; ')} — rewrite or retire (review_lessons).`);
   if (summary.exportable.length) lines.push(`${summary.exportable.length} proven lesson(s) can become Claude Code skills (export_skills).`);
+  if (summary.duplicates.length) lines.push(`${summary.duplicates.length} pair(s) of lessons say nearly the same thing — merge them (merge_lessons; see review_lessons).`);
   if (summary.shareable.length) lines.push(`${summary.shareable.length} proven lesson(s) can be shared with your other projects (share_lessons).`);
   if (summary.library?.lessons) lines.push(`Lesson library: ${summary.library.lessons} lesson(s) from your other projects apply here; they are suggested when a check fails.`);
   return lines.length ? `\n${lines.join('\n')}` : '';

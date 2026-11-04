@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { createTestHexaCore, TEST_ROOT } from '../helpers/test_hexacore.js';
 import { InMemoryFileSystem } from '../helpers/in_memory_fs.js';
 import { createToolRegistry } from '../../src/features/mcp_server/infrastructure/mcp_server_factory.js';
-import { failureSignature, effectiveness, nextStatus, isExportable } from '../../src/features/learning/index.js';
+import { failureSignature, effectiveness, nextStatus, isExportable, rankingBoost, freshness } from '../../src/features/learning/index.js';
 
 const ctx = { reportProgress: async () => {} };
 
@@ -209,6 +209,45 @@ describe('lesson library', () => {
     const rated = await blog.call('rate_lesson', { lessonId: libraryId, retire: true });
     expect(rated.status).toBe('retired');
     expect((await blog.call('review_lessons', { query: 'expected id' })).matches).toEqual([]);
+  });
+});
+
+describe('lesson maintenance', () => {
+  it('reports near-duplicates and merges them, keeping the evidence and the text not rewritten', async () => {
+    const { call, qa, fs } = setup([1]);
+    const { lesson: a } = await call('record_lesson', lessonInput);
+    const { lesson: b } = await call('record_lesson', { ...lessonInput, title: 'Generate the id inside the domain entity' });
+    await call('rate_lesson', { lessonId: a.id, helpful: true });
+    for (let i = 0; i < 2; i++) await call('rate_lesson', { lessonId: b.id, helpful: true });
+
+    const review = await call('review_lessons');
+    expect(review.duplicates).toMatchObject([{ ids: [a.id, b.id] }]);
+    expect((await call('resume_session')).briefing).toContain('1 pair(s) of lessons say nearly the same thing');
+
+    const merged = await call('merge_lessons', { keepId: a.id, mergeIds: [b.id], solution: 'Create the id with crypto.randomUUID() in the entity factory.' });
+    expect(merged.retired).toEqual([b.id]);
+    expect(merged.lesson.stats.helped).toBe(3);
+    expect(merged.lesson.version).toBe(2);
+    const markdown = await fs.readFile(path.join(TEST_ROOT, a.file));
+    expect(markdown).toContain('Create the id with crypto.randomUUID() in the entity factory.');
+    expect(markdown).toContain('the handler returns an entity without an id');
+
+    expect((await call('review_lessons')).duplicates).toEqual([]);
+    expect((await qa()).learning.suggestions.map((s: any) => s.id)).toEqual([a.id]);
+    await expect(call('merge_lessons', { keepId: a.id, mergeIds: [a.id] })).rejects.toThrow('other than keepId');
+  });
+
+  it('lowers the weight of lessons nobody has used for months', () => {
+    const now = Date.parse('2026-11-01T00:00:00Z');
+    const lesson: any = { status: 'active', updatedAt: '2026-10-20T00:00:00Z', stats: { retrieved: 1, helped: 0, notHelped: 0 } };
+    expect(freshness(lesson, now)).toBe(1);
+    const fresh = rankingBoost(lesson, now);
+    lesson.updatedAt = '2025-06-01T00:00:00Z';
+    expect(freshness(lesson, now)).toBe(0.6);
+    expect(rankingBoost(lesson, now)).toBeCloseTo(fresh * 0.6, 2);
+    // Being offered again makes it fresh again.
+    lesson.stats.lastUsedAt = '2026-10-30T00:00:00Z';
+    expect(rankingBoost(lesson, now)).toBe(fresh);
   });
 });
 

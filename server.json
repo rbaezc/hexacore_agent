@@ -1,0 +1,33 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.rbaezc/hexacore-agent",
+  "description": "Verified, reversible Vertical Slice Architecture companion for 11 stacks; learns from your tests.",
+  "repository": {
+    "url": "https://github.com/rbaezc/hexacore_agent",
+    "source": "github"
+  },
+  "websiteUrl": "https://rbaezc.github.io/hexacore_agent/",
+  "version": "3.3.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "hexacore-agent",
+      "version": "3.3.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "HEXACORE_WORKSPACE",
+          "description": "Project directory (default: the client's MCP roots, else the working directory)",
+          "isRequired": false
+        },
+        {
+          "name": "HEXACORE_HOME",
+          "description": "Lesson library location (default: ~/.hexacore)",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}

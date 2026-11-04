@@ -48,6 +48,6 @@ export function createTestHexaCore(
       return failures ? { stdout: '', stderr: '', exitCode: 1, success: false, failureKind: 'exit_code' } : { stdout: '', stderr: '', exitCode: 0, success: true };
     },
   };
-  const services = createHexaCore({ workspaceRoot: root, fileSystem: fs, processRunner: runner, telemetryLog: false, lessonLibrary: TEST_LIBRARY });
+  const services = createHexaCore({ workspaceRoot: root, fileSystem: fs, processRunner: runner, telemetryLog: false, lessonLibrary: TEST_LIBRARY, userProfile: path.join(TEST_LIBRARY, 'profile.json') });
   return { services, fs, runs: () => runs };
 }
