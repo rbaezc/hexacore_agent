@@ -62,6 +62,32 @@ describe('ArchitectureChecker', () => {
     expect(files).toContain('app/slices/orders/domain.py');
   });
 
+  it('lets composition slices declared in hexacore.json use public modules, never internals', async () => {
+    const files = {
+      'src/features/orders/index.ts': 'export {};',
+      'src/features/orders/infrastructure/db.ts': 'export class Db {}',
+      'src/features/orchestrator/services/run.ts': "import { create } from '../../orders/index.js';\nimport { Db } from '../../orders/infrastructure/db.js';",
+      'src/features/billing/services/pay.ts': "import { create } from '../../orders/index.js';",
+    };
+    const describeViolations = async (extra: Record<string, string>) => {
+      const report = await checker({ ...files, ...extra }).checker.check();
+      if (!report.isSuccess) throw report.error;
+      return { ...report.value, found: report.value.violations.map((v) => `${v.severity}:${v.file}:${v.line}`) };
+    };
+
+    const strict = await describeViolations({});
+    expect(strict.found).toEqual(
+      expect.arrayContaining(['warning:src/features/orchestrator/services/run.ts:1', 'error:src/features/orchestrator/services/run.ts:2', 'warning:src/features/billing/services/pay.ts:1'])
+    );
+
+    const configured = await describeViolations({ 'hexacore.json': JSON.stringify({ architecture: { compositionSlices: ['orchestrator'] } }) });
+    expect(configured.compositionSlices).toEqual(['orchestrator']);
+    expect(configured.found.sort()).toEqual(['error:src/features/orchestrator/services/run.ts:2', 'warning:src/features/billing/services/pay.ts:1']);
+
+    // A broken config falls back to the strict rules instead of hiding violations.
+    expect((await describeViolations({ 'hexacore.json': '{ nope' })).found).toHaveLength(3);
+  });
+
   it('flags oversized files but ignores node_modules', async () => {
     const big = Array(260).fill('x();').join('\n');
     const { checker: c } = checker({ 'src/features/a/domain/big.ts': big, 'node_modules/lib/huge.js': big });

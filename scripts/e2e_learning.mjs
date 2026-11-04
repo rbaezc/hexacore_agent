@@ -31,7 +31,7 @@ function check(condition, message, detail) {
 async function project(name, slice) {
   const dir = path.join(work, name);
   cpSync(path.join(repo, 'tests/e2e/fixtures/go'), dir, { recursive: true });
-  const registry = createToolRegistry(createHexaCore({ workspaceRoot: dir, telemetryLog: false, lessonLibrary: library }));
+  const registry = createToolRegistry(createHexaCore({ workspaceRoot: dir, telemetryLog: false, lessonLibrary: library, userProfile: path.join(library, 'profile.json') }));
   const call = async (tool, input = {}) => {
     const result = await registry.call(tool, input, ctx);
     if (result.isFailure) throw new Error(`${tool} failed: ${result.error.message}`);

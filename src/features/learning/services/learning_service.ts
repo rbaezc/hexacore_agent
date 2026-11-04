@@ -1,7 +1,7 @@
 import { Result, ok, fail } from '../../../shared/domain/result.js';
 import { SupportedStack } from '../../../shared/domain/stack.js';
 import { Episode, FixAttribution, LearningSummary, Lesson, LessonScope, LessonStats, LessonSuggestion, ObservedCheck, OpenFailure } from '../domain/learning_types.js';
-import { RUNS_BEFORE_NOT_HELPED, describeFailures, effectiveness, failureSignature, isExportable, nextStatus } from '../domain/lesson_policy.js';
+import { REVIEW_STALE_DAYS, RUNS_BEFORE_NOT_HELPED, describeFailures, effectiveness, failureSignature, idleDays, isExportable, nextStatus } from '../domain/lesson_policy.js';
 import { LearningRepository } from './learning_repository.js';
 import { LessonFinder, parseLessonId } from './lesson_finder.js';
 import { LessonLibrary, shareableLessons } from './lesson_library.js';
@@ -206,6 +206,12 @@ export class LearningService {
         .sort((a, b) => effectiveness(b.stats) - effectiveness(a.stats) || b.stats.helped - a.stats.helped)
         .slice(0, 5)
         .map((l) => ({ ...score(l), stack: l.stack })),
+      duplicates: this.deps.finder.duplicates(live),
+      stale: live
+        .map((l) => ({ id: l.id, title: l.title, idleDays: Math.floor(idleDays(l)) }))
+        .filter((l) => l.idleDays >= REVIEW_STALE_DAYS)
+        .sort((a, b) => b.idleDays - a.idleDays)
+        .slice(0, 10),
       shareable: this.deps.library ? shareableLessons(lessons).map(score) : [],
       library: this.deps.library ? await this.deps.library.summary(stacks) : undefined,
     });

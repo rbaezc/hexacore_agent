@@ -41,6 +41,8 @@ export interface Lesson {
   sharedVersion?: number;
   /** Library lessons: projects that contributed it or were helped by it. */
   projects?: string[];
+  /** Set when the lesson was merged into another one (it is retired). */
+  mergedInto?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -136,6 +138,19 @@ export interface LessonInput {
 /** project = this workspace's lessons; library = the user's lessons shared from other projects. */
 export type LessonOrigin = 'project' | 'library';
 
+export interface MergeInput {
+  /** The lesson that survives; it gets the merged evidence and history. */
+  keepId: string;
+  /** Lessons folded into it; they are retired. */
+  mergeIds: string[];
+  /** Optional rewrite of the surviving lesson (otherwise its text is kept). */
+  title?: string;
+  problem?: string;
+  solution?: string;
+  example?: string;
+  tags?: string[];
+}
+
 export interface LessonSuggestion {
   id: string;
   origin: LessonOrigin;
@@ -154,6 +169,10 @@ export interface LearningSummary {
   unlearnedEpisodes: { id: string; stack: SupportedStack; check: string; summary: string; recurrences: number }[];
   exportable: { id: string; title: string; effectiveness: number }[];
   topLessons: { id: string; title: string; stack: LessonScope; effectiveness: number }[];
+  /** Pairs of live lessons that say nearly the same thing: merge them with merge_lessons. */
+  duplicates: { ids: [string, string]; titles: [string, string]; similarity: number }[];
+  /** Live lessons nobody has used or rewritten for a long time: still accurate? */
+  stale: { id: string; title: string; idleDays: number }[];
   /** Proven project lessons not yet shared with the library, or changed since they were shared. */
   shareable: { id: string; title: string; effectiveness: number }[];
   /** Library lessons available to this project's stacks. */

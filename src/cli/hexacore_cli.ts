@@ -5,7 +5,7 @@ import { createHexaCore } from '../composition_root.js';
 import { createToolRegistry } from '../features/mcp_server/infrastructure/mcp_server_factory.js';
 import { getPackageVersion } from '../shared/infrastructure/package_info.js';
 
-const BOOLEAN_FLAGS = new Set(['dryRun', 'overwrite', 'force', 'noTests']);
+const BOOLEAN_FLAGS = new Set(['dryRun', 'overwrite', 'force', 'noTests', 'strict']);
 
 /** Splits argv into positional arguments and `--flag [value]` options in a single pass. */
 function parseArgs(argv: string[]): { positional: string[]; flags: Record<string, string | boolean> } {
@@ -29,7 +29,7 @@ const USAGE = `Usage: hexacore <command> [args] [--workspace <dir>]
   rag <query…>                            Search architecture rules
   scaffold <stack> <name> [--targetDir d] [--layer l] [--dryRun] [--overwrite] [--noTests]
   qa <stack> [--checks test,typecheck,lint,build] [--scope s] [--cwd d]
-  arch [path]                             Architecture audit
+  arch [path] [--strict]                  Architecture audit (--strict: warnings fail too)
   orchestrate <stack> <slice[,slice…]> [--description text] [--targetDir d] [--checks …]
   resume <planId>                         Continue a persisted plan
   checkpoints                             List checkpoints
@@ -63,7 +63,7 @@ function toToolCall(command: string, args: string[], flags: Record<string, strin
     case 'qa':
       return { tool: 'run_quality_assurance', input: { stack: args[0], checks: list(flags.checks), scope: str(flags.scope), cwd: str(flags.cwd) } };
     case 'arch':
-      return { tool: 'check_architecture', input: { path: args[0] } };
+      return { tool: 'check_architecture', input: { path: args[0], strict: flags.strict === true || undefined } };
     case 'orchestrate':
       return {
         tool: 'orchestrate_task',

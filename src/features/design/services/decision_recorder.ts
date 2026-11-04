@@ -3,8 +3,8 @@ import { IFileSystem } from '../../../shared/infrastructure/file_system.js';
 import { WorkspaceContext } from '../../../shared/infrastructure/workspace.js';
 import { Result, ok, fail } from '../../../shared/domain/result.js';
 import { ChangeJournal } from '../../../shared/infrastructure/change_journal.js';
-import { StateRepository, DecisionRecord } from '../../state_management/index.js';
-import { DecisionInput } from '../domain/design_types.js';
+import { DecisionRecord } from '../../../shared/domain/decision_record.js';
+import { DecisionIndex, DecisionInput } from '../domain/design_types.js';
 
 /**
  * Architecture Decision Records (Michael Nygard format) under docs/adr/. The RAG engine indexes
@@ -15,7 +15,7 @@ export class DecisionRecorder {
     private readonly fileSystem: IFileSystem,
     private readonly workspace: WorkspaceContext,
     private readonly journal: ChangeJournal,
-    private readonly stateRepo: StateRepository
+    private readonly index: DecisionIndex
   ) {}
 
   async record(input: DecisionInput): Promise<Result<DecisionRecord & { checkpointId: string }, Error>> {
@@ -72,7 +72,7 @@ export class DecisionRecorder {
       file: this.workspace.relative(written.value),
       date,
     };
-    const saved = await this.stateRepo.addDecision(record);
+    const saved = await this.index.addDecision(record);
     if (saved.isFailure) return fail(saved.error);
     return ok({ ...record, checkpointId: checkpoint.id });
   }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Smoke test of the built MCP server over real stdio, the way Claude Code / Cursor launch it.
-// Requires `npm run build` first.
+// Requires `npm run build` first. HEXACORE_SMOKE_LAUNCHER points it at another launcher (e.g. an installed package).
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -14,8 +14,10 @@ writeFileSync(path.join(workspace, 'go.mod'), 'module example.com/smoke\n\ngo 1.
 
 const transport = new StdioClientTransport({
   command: process.execPath,
-  args: [path.join(repo, 'dist/cli/mcp_launcher.js')],
+  args: [process.env.HEXACORE_SMOKE_LAUNCHER ?? path.join(repo, 'dist/cli/mcp_launcher.js')],
   cwd: workspace,
+  // Keep the user's lesson library and profile (~/.hexacore) out of the test.
+  env: { ...process.env, HEXACORE_HOME: path.join(workspace, '.hexacore-home') },
   stderr: 'inherit',
 });
 const client = new Client({ name: 'hexacore-smoke', version: '1.0.0' });

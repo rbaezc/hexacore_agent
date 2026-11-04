@@ -65,6 +65,19 @@ export class LessonFinder {
     return suggestions;
   }
 
+  /** Every pair of lessons that say nearly the same thing, most similar first. */
+  duplicates(lessons: Lesson[]): { ids: [string, string]; titles: [string, string]; similarity: number }[] {
+    const pairs: { ids: [string, string]; titles: [string, string]; similarity: number }[] = [];
+    const candidates = lessons.slice(0, 300);
+    for (const [i, a] of candidates.entries()) {
+      for (const s of this.similar(a, candidates.slice(i + 1))) {
+        const b = candidates.find((l) => l.id === s.id)!;
+        pairs.push({ ids: [a.id, b.id], titles: [a.title, b.title], similarity: s.similarity });
+      }
+    }
+    return pairs.sort((x, y) => y.similarity - x.similarity).slice(0, 10);
+  }
+
   /** Lessons that say nearly the same thing (token overlap of title + problem): merge candidates. */
   similar(target: { title: string; problem: string; stack: LessonScope }, lessons: Lesson[], excludeId?: string): { id: string; title: string; similarity: number }[] {
     const tokens = new Set(analyze(`${target.title} ${target.problem}`));

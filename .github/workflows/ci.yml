@@ -26,8 +26,10 @@ jobs:
       - run: npm test
       - name: MCP stdio smoke test (built server)
         run: node scripts/mcp_smoke.mjs
-      - name: HexaCore audits its own architecture
-        run: npx tsx src/cli/hexacore_cli.ts arch src
+      - name: Installed package works (npm pack → install → MCP smoke)
+        run: node scripts/pack_smoke.mjs
+      - name: HexaCore audits its own architecture (no errors, no warnings)
+        run: npx tsx src/cli/hexacore_cli.ts arch src --strict
 
   # Proof that the learning loop works on a real project: break and fix a generated Go slice and
   # require episodes, lessons, diff-backed credit, skill export and the cross-project library to work.

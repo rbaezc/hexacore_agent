@@ -1,0 +1,5 @@
+{
+  "architecture": {
+    "compositionSlices": ["orchestrator", "mcp_server"]
+  }
+}

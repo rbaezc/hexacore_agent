@@ -26,6 +26,7 @@ import { LessonLibrary } from './features/learning/services/lesson_library.js';
 import { WorkspaceSnapshots } from './features/learning/services/workspace_snapshots.js';
 import { FixAttributor } from './features/learning/services/fix_attributor.js';
 import { LessonSearch } from './features/learning/domain/learning_types.js';
+import { ProfileService } from './features/user_profile/services/profile_service.js';
 
 export interface HexaCoreServices {
   workspace: WorkspaceContext;
@@ -43,6 +44,7 @@ export interface HexaCoreServices {
   stackDetector: StackDetector;
   learning: LearningService;
   lessons: LessonAuthoring;
+  profile: ProfileService;
   /** Set by the MCP server once the client proves it supports sampling. */
   llm: { client?: LlmClient };
 }
@@ -60,11 +62,22 @@ export interface HexaCoreOptions {
    * HEXACORE_LIBRARY=off disables it). false disables it too.
    */
   lessonLibrary?: string | false;
+  /** The user profile file (default <HEXACORE_HOME or ~/.hexacore>/profile.json; HEXACORE_PROFILE=off disables it). false disables it too. */
+  userProfile?: string | false;
+}
+
+function hexacoreHome(): string {
+  return path.resolve(process.env.HEXACORE_HOME ?? path.join(os.homedir(), '.hexacore'));
 }
 
 function libraryRoot(option: HexaCoreOptions['lessonLibrary']): string | undefined {
   if (option === false || (option === undefined && process.env.HEXACORE_LIBRARY === 'off')) return undefined;
-  return path.resolve(option ?? process.env.HEXACORE_HOME ?? path.join(os.homedir(), '.hexacore'));
+  return option ? path.resolve(option) : hexacoreHome();
+}
+
+function userProfilePath(option: HexaCoreOptions['userProfile']): string | undefined {
+  if (option === false || (option === undefined && process.env.HEXACORE_PROFILE === 'off')) return undefined;
+  return option ? path.resolve(option) : path.join(hexacoreHome(), 'profile.json');
 }
 
 export function createHexaCore(options: HexaCoreOptions = {}): HexaCoreServices {
@@ -87,6 +100,7 @@ export function createHexaCore(options: HexaCoreOptions = {}): HexaCoreServices 
   const libraryDir = libraryRoot(options.lessonLibrary);
   const library = libraryDir ? new LessonLibrary(fileSystem, libraryDir, lessonSearch) : undefined;
   const projectName = () => path.basename(workspace.root);
+  const userProfileFile = userProfilePath(options.userProfile);
   const learning = new LearningService({
     repo: learningRepo,
     finder: lessonFinder,
@@ -132,6 +146,10 @@ export function createHexaCore(options: HexaCoreOptions = {}): HexaCoreServices 
     stackDetector: new StackDetector(fileSystem),
     learning,
     lessons: new LessonAuthoring(fileSystem, workspace, journal, learningRepo, lessonFinder, library, projectName),
+    profile: new ProfileService(fileSystem, {
+      user: userProfileFile ? () => userProfileFile : undefined,
+      project: () => workspace.hexagenPath('profile.json'),
+    }),
     llm,
   };
 }

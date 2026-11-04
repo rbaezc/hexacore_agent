@@ -76,7 +76,8 @@ function runStack(stack, keep) {
   cpSync(path.join(repo, 'tests/e2e/fixtures', stack), work, { recursive: true });
   console.log(`\n=== ${stack} → ${work}`);
 
-  const env = { ...process.env };
+  // HEXACORE_HOME: keep the user's lesson library and profile (~/.hexacore) out of the test.
+  const env = { ...process.env, HEXACORE_HOME: path.join(work, '.hexacore-home') };
   if (spec.venv) env.PATH = `${path.join(work, isWin ? '.venv/Scripts' : '.venv/bin')}${path.delimiter}${env.PATH}`;
 
   try {

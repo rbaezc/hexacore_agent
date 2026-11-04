@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-11-03
+
+### Added
+
+- **User model** (new `user_profile` slice):
+  - `remember_preference` stores what the user says about how they like to work, in `user` scope (`~/.hexacore/profile.json`, every project) or `project` scope (`.hexagen/profile.json`). Credential-like text is refused.
+  - Habits are observed from tool calls through a new `ToolRegistry` observer, and shown only with enough evidence: main stacks, usual QA checks, previewing scaffolding, rollback rate.
+  - Both open every `resume_session` briefing ("How this user works") and are returned as `profile`.
+  - `forget_preference` removes one preference, the habits or everything. `HEXACORE_PROFILE=off` disables the user profile.
+- **Lesson maintenance**:
+  - Search weight decays for lessons idle more than 60 days, down to 60% at a year; `review_lessons` lists `stale` lessons (180+ days).
+  - `review_lessons` lists near-duplicate pairs (`duplicates`), and the briefing mentions them.
+  - `merge_lessons` folds duplicates into one lesson, moving their evidence, episodes and pending offers, optionally rewriting it, and retires the others.
+- **Architecture config**: `hexacore.json` `architecture.compositionSlices` declares slices that coordinate others; their public-module imports are no longer warnings, and internal imports are still errors.
+  - `check_architecture` / `hexacore arch` gain `strict`, which fails on warnings.
+  - HexaCore's self-audit is now 0 errors, 0 warnings, and CI runs it with `--strict`.
+- **Distribution**:
+  - The package is ready for npm (`npx -y hexacore-agent` starts the MCP server) and the MCP registry (`server.json`, `mcpName` `io.github.rbaezc/hexacore-agent`).
+  - `prepublishOnly` cleans, builds, tests and smoke-tests.
+  - `scripts/pack_smoke.mjs` (`npm run e2e:pack`, CI on Linux and Windows) installs the packed tarball and runs the MCP smoke test against it.
+
+### Changed
+
+- The design slice records ADRs through a `DecisionIndex` port; `DecisionRecord` moved to the shared kernel.
+- Test and e2e scripts use a temporary `HEXACORE_HOME`, so they never touch the user's library or profile.
+- The package no longer ships source maps.
+
 ## [3.2.0] - 2026-11-03
 
 ### Added

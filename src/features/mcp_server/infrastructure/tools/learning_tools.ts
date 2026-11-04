@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ok, fail } from '../../../../shared/domain/result.js';
 import type { HexaCoreServices } from '../../../../composition_root.js';
 import { SUPPORTED_STACKS } from '../../../../shared/domain/stack.js';
-import { LessonInput } from '../../../learning/index.js';
+import { LessonInput, MergeInput } from '../../../learning/index.js';
 import { ToolDefinition } from '../../domain/mcp_types.js';
 
 const scopeEnum = z.enum(['any', ...SUPPORTED_STACKS] as [string, ...string[]]);
@@ -48,7 +48,7 @@ export function learningTools(s: HexaCoreServices): ToolDefinition[] {
       name: 'review_lessons',
       title: 'Review learned lessons',
       description:
-        'Maintenance view of what HexaCore has learned: resolved failures without a lesson yet (with recurrence counts), lessons whose evidence says they are not helping (rewrite with record_lesson updateId, or retire), proven lessons ready to export as skills or share with your other projects, the most effective lessons, and the lesson library from your other projects. With query, searches project and library lessons.',
+        'Maintenance view of what HexaCore has learned: resolved failures without a lesson yet (with recurrence counts), lessons whose evidence says they are not helping (rewrite with record_lesson updateId, or retire), near-duplicate lessons to merge (merge_lessons), lessons unused for months (still accurate?), proven lessons ready to export as skills or share with your other projects, the most effective lessons, and the lesson library from your other projects. With query, searches project and library lessons.',
       schema: () =>
         z.object({
           query: z.string().optional().describe('Search lessons, e.g. "dotnet namespace error"'),
@@ -64,6 +64,23 @@ export function learningTools(s: HexaCoreServices): ToolDefinition[] {
         if (matches.isFailure) return fail(matches.error);
         return ok({ ...summary.value, matches: matches.value });
       },
+    },
+    {
+      name: 'merge_lessons',
+      title: 'Merge duplicate lessons',
+      description:
+        'Folds near-duplicate lessons (see review_lessons duplicates) into one. The surviving lesson (keepId) gets their usage evidence and history; the others are retired. Optionally rewrite the survivor with the best of both (fields left out keep its current text).',
+      schema: () =>
+        z.object({
+          keepId: z.string().describe('Lesson that survives'),
+          mergeIds: z.array(z.string()).min(1).describe('Lessons folded into it (retired)'),
+          title: z.string().min(3).optional(),
+          problem: z.string().min(3).optional(),
+          solution: z.string().min(3).optional(),
+          example: z.string().optional(),
+          tags: z.array(z.string()).optional(),
+        }),
+      handler: async (args: MergeInput) => s.lessons.merge(args),
     },
     {
       name: 'export_skills',

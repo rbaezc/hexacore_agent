@@ -6,7 +6,7 @@
 
 HexaCore Agent is a local MCP server (plus CLI) that your AI client uses as its governed "hands" on any project directory — existing or new. It does not need your project to be running.
 
-1. **One-time setup** — build HexaCore once (`npm install && npm run build`).
+1. **One-time setup** — nothing to build: `npx -y hexacore-agent` runs the published package (or build from source, see §2).
 2. **Register it in your AI client** — Claude Code, Cursor, VS Code, Antigravity (see §5).
 3. **Open any HexaGen project** — HexaCore detects every stack in the workspace (monorepos included, two levels deep) from its manifest files, and takes the workspace root from the client's MCP roots.
 4. **Work in a governed loop**:
@@ -28,6 +28,9 @@ Every file HexaCore writes is checkpointed; `rollback_changes` undoes it exactly
 - The toolchains of the stacks you work with (HexaCore drives them; it doesn't bundle them).
 
 ### Installation
+The MCP clients below start it with `npx -y hexacore-agent`; nothing else to install. For the CLI: `npm install -g hexacore-agent` (then `hexacore <command>`).
+
+From source:
 ```bash
 git clone https://github.com/rbaezc/hexacore_agent.git
 cd hexacore_agent
@@ -47,6 +50,7 @@ npm test
 - **Orchestration** — persisted plans that survive crashes and can be resumed.
 - **Change control** — checkpoints for every write; all-or-nothing rollback that refuses to clobber later edits.
 - **Memory** — plans, ADR index, QA history and handoff notes in `.hexagen/state.json`.
+- **User model** — preferences the user states (`remember_preference`) plus habits observed from how they use HexaCore, at the top of every briefing.
 - **Learning loop** — resolved failures become episodes, the model distills them into lessons (`.hexagen/skills/`), lessons are suggested when a similar check fails and credited when the fix that turns the check green matches them; proven ones are exported as Claude Code skills and can be shared with your other projects through the lesson library (`~/.hexacore/`).
 
 ---
@@ -79,7 +83,7 @@ HexaCore speaks MCP over stdio.
 
 ### Claude Code
 ```bash
-claude mcp add hexacore-agent -- node <path-to-hexacore_agent>/dist/cli/mcp_launcher.js
+claude mcp add hexacore-agent -- npx -y hexacore-agent
 ```
 
 ### Generic `mcp.json`
@@ -87,12 +91,14 @@ claude mcp add hexacore-agent -- node <path-to-hexacore_agent>/dist/cli/mcp_laun
 {
   "mcpServers": {
     "hexacore-agent": {
-      "command": "node",
-      "args": ["<path-to-hexacore_agent>/dist/cli/mcp_launcher.js"]
+      "command": "npx",
+      "args": ["-y", "hexacore-agent"]
     }
   }
 }
 ```
+
+From source, use `node <path-to-hexacore_agent>/dist/cli/mcp_launcher.js` as the command.
 
 - **Workspace**: taken from the client's MCP roots; otherwise the server's working directory. `HEXACORE_WORKSPACE=/path` overrides both.
 - **Auto-fix**: enabled automatically when the client supports MCP sampling. Without it, HexaCore returns structured failures and the client model fixes them.
@@ -107,7 +113,7 @@ claude mcp add hexacore-agent -- node <path-to-hexacore_agent>/dist/cli/mcp_laun
 | `search_knowledge_base(query, topK?)` | Rule retrieval across bundled rules, project rules and ADRs (English/Spanish). |
 | `execute_scaffolding(stack, sliceName, layer?, targetDir?, dryRun?, overwrite?, includeTests?)` | Generate a slice. Refuses to overwrite unless `overwrite: true`; `dryRun` returns planned files with content. |
 | `run_quality_assurance(stack, checks?, scope?, cwd?)` | `test`, `typecheck`, `lint`, `build`. Structured results; missing tools are `skipped` (never `passed`). Streams progress. |
-| `check_architecture(path?)` | Audit coupling, layer direction and file size. |
+| `check_architecture(path?, strict?)` | Audit coupling, layer direction and file size. `strict` fails on warnings too. |
 | `orchestrate_task(description, targetStack, slices? \| sliceName, targetDir?, overwrite?, qaChecks?, autoFix?)` | Persisted plan: rules → scaffold each slice → architecture → QA (+ auto-fix). Returns `nextActions`. |
 | `resume_plan(planId, autoFix?)` | Continue a plan from its first unfinished step. |
 | `list_checkpoints(limit?)` | Recent checkpoints and the files each touched. |
@@ -117,9 +123,12 @@ claude mcp add hexacore-agent -- node <path-to-hexacore_agent>/dist/cli/mcp_laun
 | `record_handoff(summary, nextSteps?, openQuestions?)` | Leave context for the next session. |
 | `record_lesson(title, problem, solution, example?, stack?, tags?, episodeId?, updateId?)` | Save a lesson to `.hexagen/skills/`; `updateId` rewrites one and keeps its history. Returns near-duplicates. |
 | `rate_lesson(lessonId, helpful?, retire?)` | Explicit feedback on a suggested lesson, or retire it. |
-| `review_lessons(query?, stack?)` | Failures without a lesson, lessons needing review, exportable lessons, best lessons; `query` searches lessons. |
+| `review_lessons(query?, stack?)` | Failures without a lesson, lessons needing review, near-duplicates, stale lessons, exportable and shareable lessons, best lessons, the library; `query` searches lessons. |
+| `merge_lessons(keepId, mergeIds[], title?, problem?, solution?, example?, tags?)` | Fold near-duplicates into one lesson: it gets their evidence and history, the others are retired. Optional rewrite (fields left out keep their text). |
 | `export_skills(lessonIds?)` | Write lessons as `.claude/skills/hexacore-<name>/SKILL.md` (default: every proven lesson not yet exported). |
 | `share_lessons(lessonIds?)` | Copy proven lessons to your lesson library so your other projects get them (default: every proven lesson new to the library or rewritten since it was shared). |
+| `remember_preference(text, category?, scope?, replaceId?)` | Remember how the user likes to work (`user` scope: every project; `project`: this one). Shown in every briefing. Refuses credential-like text. |
+| `forget_preference(id? \| observed? \| all?)` | Forget one preference, the observed habits, or everything. |
 
 **Prompts** (slash commands in most clients): `design_feature`, `implement_slice`, `fix_failing_checks`.
 **Resources**: every rule document (`hexacore://knowledge/...`) and the session briefing (`hexacore://session/briefing`).
@@ -136,7 +145,7 @@ npm start -- rag "reglas de capas en go"
 npm start -- scaffold rust payments --dryRun --workspace ../my_app
 npm start -- scaffold rust payments --workspace ../my_app
 npm start -- qa rust --checks typecheck,test --workspace ../my_app
-npm start -- arch --workspace ../my_app
+npm start -- arch --strict --workspace ../my_app
 npm start -- orchestrate dotnet orders,invoices --checks build,test --workspace ../my_app
 npm start -- resume plan_123 --workspace ../my_app
 npm start -- checkpoints --workspace ../my_app
@@ -146,7 +155,7 @@ npm start -- export-skills --workspace ../my_app
 npm start -- share-lessons --workspace ../my_app
 ```
 
-After `npm run build`, the same commands are available as `hexacore <command>`.
+Installed from npm (or after `npm run build`), the same commands are available as `hexacore <command>`.
 
 ---
 
@@ -154,7 +163,7 @@ After `npm run build`, the same commands are available as `hexacore <command>`.
 
 1. **250-line limit** for every source file (generated code is blocked before writing; existing code is reported by `check_architecture`).
 2. **Layer direction**: domain → nothing; application → domain; infrastructure → domain/application; presentation → application/domain.
-3. **No horizontal coupling** between slices; communicate via `shared/domain` contracts or domain events.
+3. **No horizontal coupling** between slices; communicate via `shared/domain` contracts or domain events. Importing another slice's public module is a warning, its internals an error. Slices that exist to coordinate others can be declared in `hexacore.json` (`{ "architecture": { "compositionSlices": ["orchestrator"] } }`): their public-module imports are expected, their internal imports are still errors.
 4. **Tests are the specification**: automated fixes never edit test files.
 5. **Reversible writes**: every write goes through a checkpoint in `.hexagen/checkpoints/`.
 6. **Sandboxed execution**: allowlisted executables only, argv without a shell, path traversal blocked, process-tree kill on timeout.
@@ -173,9 +182,21 @@ Commit `.hexagen/state.json` if you want plans, ADR index and handoffs shared wi
 - A check that goes green without any file changing (a flaky test, an environment fix) credits nobody.
 - Without a snapshot of the red state (the server restarted, or the CLI, which runs each command in a new process), every offered lesson is credited, as before (`attribution: correlational`).
 - A lesson is **debited** once if its failure stays red for 5 runs. `rate_lesson` adds explicit votes.
+- Lessons nobody has offered or rewritten for 60 days start losing weight in search, down to 60% at a year; being offered again restores it. `review_lessons` lists the ones idle for 180 days or more (`stale`): still accurate?
+- `review_lessons` lists near-duplicate pairs (`duplicates`); `merge_lessons` keeps one, adds the others' evidence, episodes and tags, and retires them. Skills exported from a retired lesson stay in `.claude/skills/`: delete them or re-export the survivor.
 - Effectiveness = (helped + 1) / (helped + not helped + 2). It multiplies the lesson's search score.
 - A lesson with 3 or more negatives and an effectiveness below 35% is flagged **needs_review**: rewrite it (`record_lesson` with `updateId`) or retire it.
 - A lesson that is **exportable** has helped at least 3 times with an effectiveness of 70% or more. The same bar applies to sharing it.
+
+### User model
+- **Stated preferences** (`remember_preference`): one sentence of guidance each, `user` scope in `~/.hexacore/profile.json` or `project` scope in `.hexagen/profile.json`. Restating one refreshes it; `replaceId` rewrites it. Credential-like text is refused.
+- **Observed habits** (user scope): counted from successful tool calls. Shown only with enough evidence:
+  - stacks with at least 20% of 5+ calls;
+  - the check set used in at least 60% of 5+ QA runs;
+  - scaffolding previewed with `dryRun` about as often as it is written (3+ scaffolds);
+  - rollbacks of at least 25% of 5+ writes.
+- Both are listed first in `resume_session` ("How this user works"), and returned as `profile`.
+- `forget_preference`: `id`, `observed: true` (reset habits) or `all: true`. `HEXACORE_PROFILE=off` disables the user profile (project preferences still work).
 
 ### Lesson library (your other projects)
 - `share_lessons` copies proven lessons to `~/.hexacore/lessons/` (index and stats in `~/.hexacore/learning.json`). `HEXACORE_HOME` moves it; `HEXACORE_LIBRARY=off` disables it.
@@ -193,4 +214,5 @@ Commit `.hexagen/state.json` if you want plans, ADR index and handoffs shared wi
 - **Rollback reports conflicts.** Someone edited those files after HexaCore wrote them. Nothing was changed. Review, then `force: true` if you really want the old content back.
 - **"Circuit breaker is OPEN".** The toolchain itself failed repeatedly (crashes or timeouts). Fix the environment; it retries automatically after 30 seconds.
 - **A lesson keeps being suggested but doesn't fit.** `rate_lesson` with `helpful: false`, or `retire: true`. Retired lessons stay on disk but are never offered.
+- **HexaCore keeps doing something I don't like.** Tell the model; it should `remember_preference` it. `resume_session` shows what HexaCore knows about how you work, and `forget_preference` removes it.
 - **Wrong workspace.** Set `HEXACORE_WORKSPACE` in the MCP server configuration, or pass `--workspace` to the CLI.
