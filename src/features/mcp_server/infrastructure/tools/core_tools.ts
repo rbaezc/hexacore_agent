@@ -1,15 +1,16 @@
 import { z } from 'zod';
 import { ok, fail } from '../../../../shared/domain/result.js';
+import { attachImages, attachedImages } from '../../../../shared/domain/attachments.js';
 import type { HexaCoreServices } from '../../../../composition_root.js';
 import { SupportedStack } from '../../../../shared/domain/stack.js';
 import { buildBriefing } from '../../../state_management/index.js';
-import { QACheck } from '../../../quality_assurance/index.js';
+import { QACheck, QAResult } from '../../../quality_assurance/index.js';
 import { LearningSummary, ObservationReport } from '../../../learning/index.js';
 import { UserProfile } from '../../../user_profile/index.js';
 import { ToolDefinition } from '../../domain/mcp_types.js';
 
 export const stackEnum = (stacks: readonly SupportedStack[]) => z.enum(stacks as [SupportedStack, ...SupportedStack[]]);
-const checkEnum = z.enum(['test', 'typecheck', 'lint', 'build']);
+const checkEnum = z.enum(['test', 'typecheck', 'lint', 'build', 'ui']);
 const layerEnum = z.enum(['domain', 'application', 'infrastructure', 'presentation', 'full']);
 
 /** Session, knowledge, scaffolding, QA and architecture tools. */
@@ -78,18 +79,28 @@ export function coreTools(s: HexaCoreServices): ToolDefinition[] {
       name: 'run_quality_assurance',
       title: 'Run quality checks',
       description:
-        "Runs the stack's native tools and returns structured results (counts, failing tests with file/line, diagnostics). checks: test (default), typecheck, lint, build. Checks whose tool isn't installed are reported as skipped, never as passed.",
+        "Runs the stack's native tools and returns structured results (counts, failing tests with file/line, diagnostics). checks: test (default), typecheck, lint, build, ui. Checks whose tool isn't installed are reported as skipped, never as passed. " +
+        'ui audits a page instead of code (target: a prototype name, an .html file or a http://localhost dev server): static rules always, plus phone/desktop and light/dark rendering with screenshots when Playwright is installed.',
       schema: (stacks) =>
         z.object({
           stack: stackEnum(stacks),
           checks: z.array(checkEnum).min(1).optional().describe('Default ["test"]'),
           scope: z.string().optional().describe('Extra runner arguments, e.g. a test file or filter'),
           cwd: z.string().optional().describe('Project directory relative to the workspace (default: where the stack was detected)'),
+          target: z.string().optional().describe('For the ui check: a prototype name (default: the latest), an .html file or a http://localhost URL'),
         }),
-      handler: async (args: { stack: SupportedStack; checks?: QACheck[]; scope?: string; cwd?: string }, ctx) => {
+      handler: async (args: { stack: SupportedStack; checks?: QACheck[]; scope?: string; cwd?: string; target?: string }, ctx) => {
+        const checks = args.checks ?? ['test'];
         const cwdRel = args.cwd ?? (await s.stackDetector.detect(s.workspace.root)).find((d) => d.stack === args.stack)?.dir ?? '.';
         const cwd = s.workspace.resolveInside(cwdRel);
         if (cwd.isFailure) return fail(cwd.error);
+        // The ui check runs in the audited page's directory, so learning compares that page before and after a fix.
+        const uiTarget = checks.includes('ui') ? await s.prototypes.store.resolveTarget(args.target) : undefined;
+        if (uiTarget?.isFailure) return fail(uiTarget.error);
+        const runs = [
+          { cwd: cwd.value, checks: checks.filter((c) => c !== 'ui'), scope: args.scope },
+          ...(uiTarget?.isSuccess ? [{ cwd: uiTarget.value.cwd, checks: ['ui' as QACheck], scope: args.target ?? uiTarget.value.label }] : []),
+        ].filter((r) => r.checks.length);
 
         let lastProgress = 0;
         const onOutput = (chunk: string) => {
@@ -100,21 +111,31 @@ export function coreTools(s: HexaCoreServices): ToolDefinition[] {
             void ctx.reportProgress(line.slice(0, 200));
           }
         };
-        const results = await s.qaRunner.runChecks({ stack: args.stack, scope: args.scope, cwd: cwd.value, onOutput }, args.checks ?? ['test']);
-        if (results.isFailure) return fail(results.error);
-        for (const r of results.value) {
-          await s.stateRepo.recordQaRun({ stack: r.stack, check: r.check, status: r.status, failed: r.failedTestsCount, total: r.totalTests, at: new Date().toISOString() });
+        const all: QAResult[] = [];
+        let learning: ObservationReport | undefined;
+        for (const run of runs) {
+          const results = await s.qaRunner.runChecks({ stack: args.stack, scope: run.scope, cwd: run.cwd, onOutput }, run.checks);
+          if (results.isFailure) return fail(results.error);
+          for (const r of results.value) {
+            await s.stateRepo.recordQaRun({ stack: r.stack, check: r.check, status: r.status, failed: r.failedTestsCount, total: r.totalTests, at: new Date().toISOString() });
+          }
+          const observed = await s.learning.observe(results.value, s.workspace.relative(run.cwd));
+          if (observed.isSuccess) learning = mergeObservations(learning, observed.value);
+          all.push(...results.value);
         }
-        const verified = results.value.filter((r) => r.status !== 'skipped');
-        const observed = await s.learning.observe(results.value, s.workspace.relative(cwd.value));
-        const learning = observed.isSuccess ? observed.value : undefined;
-        return ok({
-          passed: verified.length > 0 && verified.every((r) => r.passed),
-          cwd: s.workspace.relative(cwd.value),
-          results: results.value,
-          learning,
-          nextActions: learningActions(learning),
-        });
+        const verified = all.filter((r) => r.status !== 'skipped');
+        return ok(
+          attachImages(
+            {
+              passed: verified.length > 0 && verified.every((r) => r.passed),
+              cwd: s.workspace.relative(cwd.value),
+              results: all,
+              learning,
+              nextActions: learningActions(learning),
+            },
+            all.flatMap((r) => attachedImages(r))
+          )
+        );
       },
     },
     {
@@ -131,6 +152,10 @@ export function coreTools(s: HexaCoreServices): ToolDefinition[] {
       handler: async (args: { path?: string; strict?: boolean }) => s.architecture.check(args.path ?? '.', { strict: args.strict }),
     },
   ];
+}
+
+function mergeObservations(a: ObservationReport | undefined, b: ObservationReport): ObservationReport {
+  return a ? { resolved: [...a.resolved, ...b.resolved], suggestions: [...a.suggestions, ...b.suggestions] } : b;
 }
 
 /** Turns a QA observation into explicit instructions, so the model actually closes the learning loop. */
