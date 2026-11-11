@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createHexaCore } from '../composition_root.js';
 import { createToolRegistry } from '../features/mcp_server/infrastructure/mcp_server_factory.js';
 import { getPackageVersion } from '../shared/infrastructure/package_info.js';
+import { runWatch } from './watch_command.js';
 
 const BOOLEAN_FLAGS = new Set(['dryRun', 'overwrite', 'force', 'noTests', 'strict', 'open']);
 
@@ -41,7 +42,9 @@ const USAGE = `Usage: hexacore <command> [args] [--workspace <dir>]
   prototype <name> <file.html> [--note n] [--target t]   Save a file as a new prototype version
   prototypes                              List prototypes and their preview URLs
   promote <name> <target> [--version n] [--overwrite]    Copy a prototype into the project
-  preview [--port p] [--open]             Serve .hexagen/prototypes on 127.0.0.1 until Ctrl+C`;
+  preview [--port p] [--open]             Serve .hexagen/prototypes on 127.0.0.1 until Ctrl+C
+  watch [--checks typecheck,test] [--notify console,desktop,voice] [--lang es|en] [--debounce ms]
+                                          Re-run checks on save; alert when one breaks or is fixed`;
 
 /** Maps CLI arguments to a tool call. Returns undefined for unknown commands. */
 function toToolCall(command: string, args: string[], flags: Record<string, string | boolean>): { tool: string; input: Record<string, unknown> } | undefined {
@@ -114,6 +117,7 @@ export async function runHexaCoreCLI(argv: string[]): Promise<number> {
   console.error(`HexaCore Agent CLI v${getPackageVersion()}`);
   const workspaceRoot = typeof flags.workspace === 'string' ? flags.workspace : undefined;
   if (command === 'preview') return servePreviews(workspaceRoot, flags);
+  if (command === 'watch') return runWatch(workspaceRoot, flags);
   let call: ReturnType<typeof toToolCall>;
   try {
     call = toToolCall(command, positional, flags);
