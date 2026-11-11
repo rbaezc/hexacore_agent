@@ -5,8 +5,10 @@ import { createHexaCore } from '../composition_root.js';
 import { createToolRegistry } from '../features/mcp_server/infrastructure/mcp_server_factory.js';
 import { getPackageVersion } from '../shared/infrastructure/package_info.js';
 import { runWatch } from './watch_command.js';
+import { runListen, runVoiceSetup } from './voice_command.js';
+import { openInBrowser } from './open_browser.js';
 
-const BOOLEAN_FLAGS = new Set(['dryRun', 'overwrite', 'force', 'noTests', 'strict', 'open']);
+const BOOLEAN_FLAGS = new Set(['dryRun', 'overwrite', 'force', 'noTests', 'strict', 'open', 'mute']);
 
 /** Splits argv into positional arguments and `--flag [value]` options in a single pass. */
 function parseArgs(argv: string[]): { positional: string[]; flags: Record<string, string | boolean> } {
@@ -44,7 +46,9 @@ const USAGE = `Usage: hexacore <command> [args] [--workspace <dir>]
   promote <name> <target> [--version n] [--overwrite]    Copy a prototype into the project
   preview [--port p] [--open]             Serve .hexagen/prototypes on 127.0.0.1 until Ctrl+C
   watch [--checks typecheck,test] [--notify console,desktop,voice] [--lang es|en] [--debounce ms]
-                                          Re-run checks on save; alert when one breaks or is fixed`;
+                                          Re-run checks on save; alert when one breaks or is fixed
+  listen [--lang es|en] [--mute] [--model base]   Voice commands: Enter to talk, Enter to stop (or type a command)
+  voice setup [--model tiny|base|small|medium]    Check the microphone and whisper.cpp, download the model`;
 
 /** Maps CLI arguments to a tool call. Returns undefined for unknown commands. */
 function toToolCall(command: string, args: string[], flags: Record<string, string | boolean>): { tool: string; input: Record<string, unknown> } | undefined {
@@ -118,6 +122,8 @@ export async function runHexaCoreCLI(argv: string[]): Promise<number> {
   const workspaceRoot = typeof flags.workspace === 'string' ? flags.workspace : undefined;
   if (command === 'preview') return servePreviews(workspaceRoot, flags);
   if (command === 'watch') return runWatch(workspaceRoot, flags);
+  if (command === 'listen') return runListen(workspaceRoot, flags);
+  if (command === 'voice' && positional[0] === 'setup') return runVoiceSetup(flags);
   let call: ReturnType<typeof toToolCall>;
   try {
     call = toToolCall(command, positional, flags);
@@ -160,11 +166,6 @@ async function servePreviews(workspaceRoot: string | undefined, flags: Record<st
   console.error(`Serving ${services.workspace.relative(services.prototypes.store.root())} at ${url} (Ctrl+C to stop)`);
   if (flags.open === true && url) openInBrowser(url);
   return new Promise<number>(() => undefined);
-}
-
-function openInBrowser(url: string): void {
-  const [cmd, args] = process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]] : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
-  import('node:child_process').then(({ spawn }) => spawn(cmd, args as string[], { stdio: 'ignore', detached: true }).unref()).catch(() => undefined);
 }
 
 // Compares real paths so this matches through npm's bin symlinks, relative argv, drive-letter casing and separators.
