@@ -1,5 +1,5 @@
 import { ExecutionPlan, PlannedSlice, PlanStep, SupportedStack } from '../../state_management/index.js';
-import { QACheck, QAFixAttempt, QAResult } from '../../quality_assurance/index.js';
+import { ToolchainCheck, QAFixAttempt, QAResult } from '../../quality_assurance/index.js';
 import { ArchitectureViolation } from '../../architecture/index.js';
 
 export interface UserRequirement {
@@ -12,7 +12,7 @@ export interface UserRequirement {
   slices?: PlannedSlice[];
   targetDir?: string;
   overwrite?: boolean;
-  qaChecks?: QACheck[];
+  qaChecks?: ToolchainCheck[];
   /** Let HexaCore ask the client model for fixes via MCP sampling (default: when available). */
   autoFix?: boolean;
 }

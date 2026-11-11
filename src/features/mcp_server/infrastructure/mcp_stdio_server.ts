@@ -15,6 +15,7 @@ import {
 import type { HexaCoreServices } from '../../../composition_root.js';
 import { Result } from '../../../shared/domain/result.js';
 import { LlmClient } from '../../../shared/domain/llm_client.js';
+import { attachedImages } from '../../../shared/domain/attachments.js';
 import { ToolRegistry } from '../services/tool_registry.js';
 import { PROMPTS } from './prompt_catalog.js';
 
@@ -33,7 +34,8 @@ export class HexaCoreMcpServer {
         instructions:
           'HexaCore governs Vertical Slice Architecture across 11 stacks. Start every session with resume_session. ' +
           'Search rules (search_knowledge_base) before designing; preview scaffolds with dryRun; verify with run_quality_assurance and check_architecture; ' +
-          'record design choices with record_decision and finish with record_handoff. All writes are checkpointed (rollback_changes).',
+          'record design choices with record_decision and finish with record_handoff. All writes are checkpointed (rollback_changes). ' +
+          'For UI work, prototype first: create_prototype (show the user its preview URL), run_quality_assurance with checks ["ui"], then promote_prototype.',
       }
     );
     this.setupHandlers();
@@ -160,7 +162,9 @@ export function toCallToolResult(result: Result<unknown, Error>): CallToolResult
   }
   const value = result.value;
   const structured = value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : { result: value };
-  return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }], structuredContent: structured };
+  // Screenshots go as image content after the JSON, so clients that show images let the model look at the page.
+  const images = attachedImages(value).map((img) => ({ type: 'image' as const, data: img.data, mimeType: img.mimeType }));
+  return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }, ...images], structuredContent: structured };
 }
 
 function resourceUri(source: string, filePath: string): string {
