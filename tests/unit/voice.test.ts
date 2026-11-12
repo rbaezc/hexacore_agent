@@ -28,6 +28,9 @@ describe('intents', () => {
     ['Abre el prototipo landing page', { name: 'open_prototype', target: 'landing-page' }],
     ['open the prototype', { name: 'open_prototype', target: undefined }],
     ['Revierte el último cambio', { name: 'rollback_last' }],
+    // How Whisper actually transcribed it in the speech round-trip test.
+    ['Reverte el último cambio.', { name: 'rollback_last' }],
+    ['revert the last change', { name: 'rollback_last' }],
     ['lista los checkpoints', { name: 'list_checkpoints' }],
     ['¿Qué puedes hacer?', { name: 'help' }],
     ['Adiós', { name: 'exit' }],

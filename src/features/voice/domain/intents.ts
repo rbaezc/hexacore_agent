@@ -25,7 +25,7 @@ function checksIn(text: string): string[] {
 const RULES: { name: Intent['name']; re: RegExp }[] = [
   { name: 'exit', re: /^(salir|sal|adios|terminar|termina|hasta luego|exit|quit|bye|goodbye|stop listening)\b/ },
   { name: 'help', re: /\b(ayuda|que puedes hacer|que sabes hacer|comandos|help|what can you do)\b/ },
-  { name: 'rollback_last', re: /\b(revierte|revertir|deshaz|deshacer|undo|roll ?back|revert)\b/ },
+  { name: 'rollback_last', re: /\b(revierte\w*|rever[ts]\w*|deshaz|deshacer|deshace|undo|roll ?back)\b/ },
   { name: 'watch_status', re: /\b(vigia|watch|watcher|algo roto|esta roto|hay errores|anything broken|whats broken|what's broken|is something broken)\b/ },
   { name: 'list_checkpoints', re: /\b(checkpoints?|puntos de control|cambios recientes|recent changes)\b/ },
   {
