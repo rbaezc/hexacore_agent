@@ -84,6 +84,8 @@ export interface QaRunSummary {
   failed: number;
   total: number;
   at: string;
+  /** 'watch' = run by `hexacore watch` on its own, not asked for in a session. */
+  source?: 'watch';
 }
 
 export interface StateManifest {

@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] - 2026-11-13
+
+### Added
+
+- **Watch mode** (new `watch` slice, `hexacore watch`):
+  - Re-runs `typecheck` and `test` (`--checks`) for every detected stack a moment after the last save (`--debounce`, default 2 s). One run at a time; changes during a run cause exactly one more.
+  - Alerts only when a check changes colour (broke, fixed, or red on the first run); a check that stays red is only logged, and a skipped check never changes the known status.
+  - Notifiers (`--notify`): terminal, desktop notification (Windows toast, macOS Notification Center, `notify-send`) and voice (Windows System.Speech in the alert's language, `say`, `spd-say`). Alert text is passed in environment variables or argv, never as script code.
+  - Alerts in English or Spanish (`--lang`, `HEXACORE_LANG`, or the system locale).
+  - Ignores dependencies, build output, dot-directories, logs and the simple entries of the root `.gitignore`.
+  - Every run is recorded in the QA history (`source: "watch"`) and observed by the learning loop; `resume_session` names the failures watch mode saw.
+- **Voice commands** (new `voice` slice, `hexacore listen`, `hexacore voice setup`):
+  - Push-to-talk in the terminal: ffmpeg records the microphone (no native modules) and whisper.cpp transcribes offline; answers are printed and spoken (`--mute` to print only). Typed commands work the same way.
+  - Spanish and English commands: where we left off, run checks, is anything broken, list / open prototypes, list checkpoints, undo the last change, help, exit.
+  - Undoing is described first and runs only after a spoken yes; anything else cancels. Rollbacks are never forced by voice.
+  - `voice setup` lists the microphones, finds whisper.cpp (`HEXACORE_WHISPER`, `~/.hexacore/whisper/`, `PATH`) and downloads the model (`--model tiny|base|small|medium`, default `base`) to `~/.hexacore/models/` through a `.part` file. `HEXACORE_MIC`, `HEXACORE_FFMPEG`, `HEXACORE_WHISPER_MODEL`.
+- `scripts/e2e_watch.mjs` (`npm run e2e:watch`, in CI on Ubuntu and Windows): a real file change breaks and fixes a real test run under `hexacore watch`, and `hexacore listen` answers typed commands.
+- ADR 0001: watch mode and voice commands.
+
 ## [3.4.0] - 2026-11-11
 
 ### Added

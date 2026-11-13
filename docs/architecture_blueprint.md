@@ -72,12 +72,18 @@ HexaCore Agent is a local, governed engineering companion for the 11 stacks of t
 - **Browser**: Playwright is loaded from the project (or next to HexaCore) at call time; it is not a dependency. A probe script in the page reports overflow, contrast and clipping; console errors and failed requests come from page events.
 - **Images**: results carry screenshots on a non-enumerable symbol (`attachImages`), which the MCP layer turns into image content after the JSON text, so the image data never bloats the text the model reads.
 
-## 9. Resilience and Safety
+## 9. Watch Mode and Voice
+- **Slice** `watch`: `WatchService` debounces changes from a `FileWatcher` (recursive `fs.watch`), runs one check pass at a time (changes during a run cause exactly one more), and compares statuses per `stack:check` (`compareRuns`). Only colour changes (`broke`, `fixed`, and a failing first run) reach the interrupting `Notifier`s (desktop, voice); everything goes to the terminal. Skipped checks never change a known status.
+- **Notifiers** spawn the platform's own tools without a shell (PowerShell WinRT toast and System.Speech on Windows, `osascript`/`say` on macOS, `notify-send`/`spd-say` on Linux). Alert text travels in environment variables or argv, never inside a script.
+- **Slice** `voice`: `VoiceSession` maps sentences to intents (`parseIntent`, Spanish and English, accent- and punctuation-insensitive) and intents to tool calls through a `ToolCaller` port. Reads run at once; `rollback_last` is described and waits for a spoken yes (anything else cancels), and a refused rollback is reported, never forced. `FfmpegRecorder` captures 16 kHz mono WAV (no native modules) and `WhisperTranscriber` runs whisper.cpp offline.
+- **Composition** happens in `src/cli`: `watch_command.ts` adapts `QARunnerService` to the watcher's `CheckRunner` and records each run (`source: 'watch'`) plus the learning loop, exactly like `run_quality_assurance`; `voice_command.ts` hands the voice session the MCP tool registry and the watch slice's speech notifier. Neither slice imports another.
+
+## 10. Resilience and Safety
 - Process execution without a shell, allowlisted executables, Windows process-tree kill on timeout.
 - Circuit breaker per `stack:check` bucket that trips only on infrastructure failures.
 - State writes are atomic (temp file + rename) and serialized; checkpoint journals are written before the files they protect.
 
-## 10. Verification Strategy
+## 11. Verification Strategy
 - Unit and integration tests (including a real MCP client over an in-memory transport).
 - `scripts/mcp_smoke.mjs`: the built server over real stdio.
 - `scripts/e2e_stack.mjs`: for each of the 11 stacks, scaffold two slices into a minimal host project and require the stack's own compiler, test runner and HexaCore's architecture audit to pass (CI matrix).

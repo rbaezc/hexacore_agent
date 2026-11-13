@@ -43,7 +43,10 @@ export function buildBriefing(
   }
   for (const p of pendingPlans) lines.push(`Unfinished plan ${p.id} (${p.status}): "${p.description}" — next: ${p.nextStep ?? 'n/a'}. Continue with resume_plan.`);
   const red = lastQa.filter((q) => q.status === 'failed');
-  if (red.length) lines.push(`Failing checks at last run: ${red.map((q) => `${q.stack}/${q.check} (${q.failed} failing)`).join(', ')}.`);
+  if (red.length) {
+    const describe = (q: (typeof red)[number]) => `${q.stack}/${q.check} (${q.failed} failing${q.source === 'watch' ? `, seen by watch mode at ${q.at}` : ''})`;
+    lines.push(`Failing checks at last run: ${red.map(describe).join(', ')}.`);
+  }
   if (recentDecisions.length) lines.push(`Recent decisions: ${recentDecisions.map((d) => `ADR ${d.number} ${d.title}`).join('; ')}.`);
   if (lines.length === 1) lines.push('No previous work recorded.');
 
