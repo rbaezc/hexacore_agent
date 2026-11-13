@@ -1,6 +1,6 @@
 {
   "name": "hexacore-agent",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "description": "Verified, reversible, self-improving Vertical Slice Architecture companion for AI coding agents: an MCP server + CLI for 11 stacks",
   "mcpName": "io.github.rbaezc/hexacore-agent",
   "keywords": [
@@ -57,7 +57,8 @@
     "e2e": "node scripts/e2e_stack.mjs",
     "e2e:learning": "npm run build && node scripts/e2e_learning.mjs",
     "e2e:pack": "npm run build && node scripts/pack_smoke.mjs",
-    "e2e:ui": "npm run build && node scripts/e2e_ui.mjs"
+    "e2e:ui": "npm run build && node scripts/e2e_ui.mjs",
+    "e2e:watch": "npm run build && node scripts/e2e_watch.mjs"
   },
   "publishConfig": {
     "access": "public"

@@ -161,7 +161,12 @@ npm start -- prototypes --workspace ../my_app
 npm start -- ui landing --workspace ../my_app          # or: ui docs/index.html | ui http://localhost:5173
 npm start -- preview --open --workspace ../my_app      # serves .hexagen/prototypes until Ctrl+C
 npm start -- promote landing docs/index.html --overwrite --workspace ../my_app
+npm start -- watch --checks typecheck,test --notify console,voice --lang es --workspace ../my_app
+npm start -- voice setup --model small
+npm start -- listen --lang es --workspace ../my_app   # Enter to talk, Enter to stop; or type a command
 ```
+
+`watch` and `listen` run in the foreground until Ctrl+C (or "salir" / "exit") and write to stderr only.
 
 Installed from npm (or after `npm run build`), the same commands are available as `hexacore <command>`.
 
@@ -214,6 +219,19 @@ Commit `.hexagen/state.json` if you want plans, ADR index and handoffs shared wi
 - **Errors fail the check; warnings** (`html-lang`, `no-dark-mode`, `body-background`, `fixed-width`, `input-label`, `heading-order`, `href="#"`, `unpinned-cdn`, `clipped-text`, `failed-request`) are listed in `warnings`.
 - URLs are limited to `localhost`, `127.0.0.1` and `[::1]`: the check never opens a page on the internet.
 
+### Watch mode
+- **Runs**: after `--debounce` ms (default 2000) without changes, the checks (`--checks`, default `typecheck,test`; toolchain checks only) run for every detected stack, in its directory. One run at a time; changes during a run cause exactly one more run.
+- **Ignored paths**: `node_modules`, `dist`, `build`, `out`, `coverage`, `target`, `bin`, `obj`, `venv`, `__pycache__`, `vendor`, `_build`, `deps`, every dot-directory (`.git`, `.hexagen`…), `*.log`, `*.tsbuildinfo`, editor swap files, and the plain-name and `*.ext` entries of the root `.gitignore`.
+- **Alerts**: a check that goes red (`broke`), goes green (`fixed`) or is red on the first run interrupts you through every notifier; a check that stays red, or a green first run, is only logged. A skipped check (tool missing) never changes the known status.
+- **Notifiers** (`--notify`): `console`; `desktop` (Windows toast via PowerShell, `osascript` on macOS, `notify-send` on Linux); `voice` (System.Speech with a voice of the alert's language when one is installed, `say`, `spd-say`). A notifier that fails is logged and the others still run. Alert text is passed in environment variables or argv, never as script code.
+- **Memory**: each run is added to the QA history with `source: "watch"` and observed by the learning loop, so `resume_session` reports "node/test (2 failing, seen by watch mode at …)".
+
+### Voice commands
+- **Pipeline**: Enter starts ffmpeg (16 kHz mono WAV: DirectShow on Windows, the first microphone unless `HEXACORE_MIC`; avfoundation on macOS; PulseAudio on Linux), Enter stops it, whisper.cpp transcribes it offline in the session's language, and the answer is printed and spoken (`--mute` to print only). Typed lines are handled the same way.
+- **Commands** (Spanish or English, accents and punctuation ignored): where we left off (`resume_session`), run checks (`run_quality_assurance`; named checks, or typecheck + test), is anything broken (latest QA history), list / open prototypes (opens the preview in the browser), list checkpoints, undo the last change, help, exit.
+- **Safety**: only the last open checkpoint can be undone by voice; HexaCore says what it will undo and how many files it touches, and runs `rollback_changes` only after "sí" / "yes". "No", or any other command, cancels. Rollbacks are never forced: if files changed after the checkpoint, the refusal is read out.
+- **Setup** (`voice setup`): lists the microphones ffmpeg sees, finds `whisper-cli` (`HEXACORE_WHISPER`, `~/.hexacore/whisper/`, `~/.hexacore/whisper/Release/`, then `PATH`), and downloads the model from whisper.cpp's Hugging Face repository to `~/.hexacore/models/` (through a `.part` file, so an interrupted download never leaves a truncated model). `base` is the default; `small` is more accurate for accented or noisy speech.
+
 ### Lesson library (your other projects)
 - `share_lessons` copies proven lessons to `~/.hexacore/lessons/` (index and stats in `~/.hexacore/learning.json`). `HEXACORE_HOME` moves it; `HEXACORE_LIBRARY=off` disables it.
 - In another project, library lessons for its stacks are suggested after the project's own lessons, with ids `library:<id>`. Their outcomes update the library stats, and `rate_lesson` accepts library ids.
@@ -227,6 +245,8 @@ Commit `.hexagen/state.json` if you want plans, ADR index and handoffs shared wi
 - **A check says `skipped`.** Its tool isn't installed or configured (e.g. no `tsconfig.json`, no ESLint config, PHPStan not in `vendor/`). The `skipReason` says which. Skipped means *not verified*.
 - **Tests fail and nothing auto-fixes them.** Your client doesn't support MCP sampling; fix the failures listed in the result (file, line, message) and re-run `run_quality_assurance`.
 - **"Refusing to overwrite".** The files exist. Preview with `dryRun: true`, then pass `overwrite: true` if intended — it stays reversible.
+- **Watch mode never speaks.** `voice` needs a text-to-speech voice: on Windows any SAPI voice (Settings › Time & language › Speech), on Linux `spd-say`. The terminal shows `! voice notification failed` when it is missing.
+- **`listen` hears nothing or the wrong words.** Run `hexacore voice setup` and check that the first microphone listed is the one you use (or set `HEXACORE_MIC`). For better accuracy use `--model small` (466 MB). Say the command after the `●` appears.
 - **Rollback reports conflicts.** Someone edited those files after HexaCore wrote them. Nothing was changed. Review, then `force: true` if you really want the old content back.
 - **The `ui` check says "Browser checks need Playwright".** Run `npm i -D playwright && npx playwright install chromium` in the project. Until then only the static rules run.
 - **The preview URL doesn't open.** Another program may hold the port: HexaCore moves to the next free one, so use the URL the tool returns. With `HEXACORE_PREVIEW=off`, open `.hexagen/prototypes/<name>/index.html` instead.

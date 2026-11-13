@@ -1,6 +1,6 @@
 # 1. HexaCore 3.5: watch mode and voice commands
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-11-11
 - **Tags:** v3.5, watch, voice, notifications
 
