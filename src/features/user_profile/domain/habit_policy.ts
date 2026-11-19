@@ -9,7 +9,7 @@ const MIN_WRITES = 5;
 const ROLLBACK_SHARE = 0.25;
 
 /** Tools that change project files through a checkpoint (what a rollback undoes). */
-const WRITING_TOOLS = new Set(['execute_scaffolding', 'orchestrate_task', 'record_decision', 'define_contract', 'record_lesson', 'merge_lessons', 'export_skills']);
+const WRITING_TOOLS = new Set(['execute_scaffolding', 'orchestrate_task', 'record_decision', 'define_contract', 'record_lesson', 'merge_lessons', 'export_skills', 'create_prototype', 'promote_prototype']);
 
 const COUNTED_TOOLS = new Set(['resume_session', 'run_quality_assurance', 'rollback_changes', ...WRITING_TOOLS]);
 

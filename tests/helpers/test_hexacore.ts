@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { createHexaCore, HexaCoreServices } from '../../src/composition_root.js';
+import { createHexaCore, HexaCoreOptions, HexaCoreServices } from '../../src/composition_root.js';
 import { IProcessRunner, ProcessExecutionResult } from '../../src/shared/infrastructure/process_runner.js';
 import { InMemoryFileSystem } from './in_memory_fs.js';
 
@@ -33,7 +33,7 @@ export function vitestReport(failures: number): string {
  */
 export function createTestHexaCore(
   testFailures: number[] = [0],
-  options: { fs?: InMemoryFileSystem; root?: string } = {}
+  options: { fs?: InMemoryFileSystem; root?: string; hexacore?: Partial<HexaCoreOptions> } = {}
 ): { services: HexaCoreServices; fs: InMemoryFileSystem; runs: () => number } {
   const root = options.root ?? TEST_ROOT;
   const fs = options.fs ?? new InMemoryFileSystem({});
@@ -48,6 +48,17 @@ export function createTestHexaCore(
       return failures ? { stdout: '', stderr: '', exitCode: 1, success: false, failureKind: 'exit_code' } : { stdout: '', stderr: '', exitCode: 0, success: true };
     },
   };
-  const services = createHexaCore({ workspaceRoot: root, fileSystem: fs, processRunner: runner, telemetryLog: false, lessonLibrary: TEST_LIBRARY, userProfile: path.join(TEST_LIBRARY, 'profile.json') });
+  const services = createHexaCore({
+    workspaceRoot: root,
+    fileSystem: fs,
+    processRunner: runner,
+    telemetryLog: false,
+    lessonLibrary: TEST_LIBRARY,
+    userProfile: path.join(TEST_LIBRARY, 'profile.json'),
+    // No real browser or server unless a test asks for one.
+    preview: false,
+    browserDriver: () => undefined,
+    ...options.hexacore,
+  });
   return { services, fs, runs: () => runs };
 }

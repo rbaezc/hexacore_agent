@@ -112,7 +112,7 @@ From source, use `node <path-to-hexacore_agent>/dist/cli/mcp_launcher.js` as the
 | `resume_session` | Briefing: unfinished plans, last QA per check, recent ADRs, last handoff, recent checkpoints, detected stacks. Call first. |
 | `search_knowledge_base(query, topK?)` | Rule retrieval across bundled rules, project rules and ADRs (English/Spanish). |
 | `execute_scaffolding(stack, sliceName, layer?, targetDir?, dryRun?, overwrite?, includeTests?)` | Generate a slice. Refuses to overwrite unless `overwrite: true`; `dryRun` returns planned files with content. |
-| `run_quality_assurance(stack, checks?, scope?, cwd?)` | `test`, `typecheck`, `lint`, `build`. Structured results; missing tools are `skipped` (never `passed`). Streams progress. |
+| `run_quality_assurance(stack, checks?, scope?, cwd?, target?)` | `test`, `typecheck`, `lint`, `build`, `ui`. Structured results; missing tools are `skipped` (never `passed`). Streams progress. `ui` audits `target` (a prototype, an `.html` file or a `http://localhost` URL) and attaches screenshots when Playwright is installed. |
 | `check_architecture(path?, strict?)` | Audit coupling, layer direction and file size. `strict` fails on warnings too. |
 | `orchestrate_task(description, targetStack, slices? \| sliceName, targetDir?, overwrite?, qaChecks?, autoFix?)` | Persisted plan: rules → scaffold each slice → architecture → QA (+ auto-fix). Returns `nextActions`. |
 | `resume_plan(planId, autoFix?)` | Continue a plan from its first unfinished step. |
@@ -129,8 +129,11 @@ From source, use `node <path-to-hexacore_agent>/dist/cli/mcp_launcher.js` as the
 | `share_lessons(lessonIds?)` | Copy proven lessons to your lesson library so your other projects get them (default: every proven lesson new to the library or rewritten since it was shared). |
 | `remember_preference(text, category?, scope?, replaceId?)` | Remember how the user likes to work (`user` scope: every project; `project`: this one). Shown in every briefing. Refuses credential-like text. |
 | `forget_preference(id? \| observed? \| all?)` | Forget one preference, the observed habits, or everything. |
+| `create_prototype(name, html? \| edits?, files?, basedOn?, target?, note?)` | Save a new version of an HTML prototype in `.hexagen/prototypes/<name>/` (a checkpoint). Returns the local preview URL and the static UI findings. |
+| `list_prototypes()` | Prototypes, their versions, intended targets, promotions and preview URLs. |
+| `promote_prototype(name, target, version?, overwrite?)` | Copy a version to an `.html` target through a checkpoint and audit it there; for any other target, return the design tokens, the markup and the steps to port it. |
 
-**Prompts** (slash commands in most clients): `design_feature`, `implement_slice`, `fix_failing_checks`.
+**Prompts** (slash commands in most clients): `design_feature`, `implement_slice`, `fix_failing_checks`, `prototype_ui`.
 **Resources**: every rule document (`hexacore://knowledge/...`) and the session briefing (`hexacore://session/briefing`).
 
 ---
@@ -153,6 +156,11 @@ npm start -- rollback cp_123 --workspace ../my_app
 npm start -- lessons "namespace error" --stack dotnet --workspace ../my_app
 npm start -- export-skills --workspace ../my_app
 npm start -- share-lessons --workspace ../my_app
+npm start -- prototype landing ./draft.html --note "first draft" --workspace ../my_app
+npm start -- prototypes --workspace ../my_app
+npm start -- ui landing --workspace ../my_app          # or: ui docs/index.html | ui http://localhost:5173
+npm start -- preview --open --workspace ../my_app      # serves .hexagen/prototypes until Ctrl+C
+npm start -- promote landing docs/index.html --overwrite --workspace ../my_app
 ```
 
 Installed from npm (or after `npm run build`), the same commands are available as `hexacore <command>`.
@@ -198,6 +206,14 @@ Commit `.hexagen/state.json` if you want plans, ADR index and handoffs shared wi
 - Both are listed first in `resume_session` ("How this user works"), and returned as `profile`.
 - `forget_preference`: `id`, `observed: true` (reset habits) or `all: true`. `HEXACORE_PROFILE=off` disables the user profile (project preferences still work).
 
+### UI prototypes and the `ui` check
+- **Storage**: `.hexagen/prototypes/<name>/` holds the current version (what the preview serves and what the learning loop compares); `.versions/<name>/v<N>/` keeps every version, `.meta/<name>.json` the history and promotions, `.shots/` the screenshots. Every save and every promotion is a checkpoint.
+- **Preview server**: `http://127.0.0.1:4173/<name>/` (the next free port when taken; `HEXACORE_PREVIEW_PORT`, `HEXACORE_PREVIEW=off`). Loopback only, read-only, only the prototypes folder; requests with another `Host` are refused. The current version reloads itself when a new one is saved; `/<name>/v<N>/` shows an old version.
+- **Static rules** (always): `ui/viewport-meta`, `ui/title`, `ui/html-lang`, `ui/undefined-token`, `ui/dark-only-token`, `ui/no-dark-mode`, `ui/body-background`, `ui/fixed-width`, `ui/img-alt`, `ui/control-name`, `ui/input-label`, `ui/heading-order`, `ui/broken-anchor`, `ui/unpinned-cdn`.
+- **Rendered rules** (Playwright + Chromium in the project, or next to HexaCore): `ui/overflow`, `ui/contrast` (4.5:1, 3:1 for large text), `ui/clipped-text`, `ui/console-error`, `ui/failed-request`, at 390×844 and 1280×800, light and dark. HexaCore does not bundle Playwright (about 150 MB with Chromium); without it the result says so in `notes` and only the static rules count.
+- **Errors fail the check; warnings** (`html-lang`, `no-dark-mode`, `body-background`, `fixed-width`, `input-label`, `heading-order`, `href="#"`, `unpinned-cdn`, `clipped-text`, `failed-request`) are listed in `warnings`.
+- URLs are limited to `localhost`, `127.0.0.1` and `[::1]`: the check never opens a page on the internet.
+
 ### Lesson library (your other projects)
 - `share_lessons` copies proven lessons to `~/.hexacore/lessons/` (index and stats in `~/.hexacore/learning.json`). `HEXACORE_HOME` moves it; `HEXACORE_LIBRARY=off` disables it.
 - In another project, library lessons for its stacks are suggested after the project's own lessons, with ids `library:<id>`. Their outcomes update the library stats, and `rate_lesson` accepts library ids.
@@ -212,6 +228,8 @@ Commit `.hexagen/state.json` if you want plans, ADR index and handoffs shared wi
 - **Tests fail and nothing auto-fixes them.** Your client doesn't support MCP sampling; fix the failures listed in the result (file, line, message) and re-run `run_quality_assurance`.
 - **"Refusing to overwrite".** The files exist. Preview with `dryRun: true`, then pass `overwrite: true` if intended — it stays reversible.
 - **Rollback reports conflicts.** Someone edited those files after HexaCore wrote them. Nothing was changed. Review, then `force: true` if you really want the old content back.
+- **The `ui` check says "Browser checks need Playwright".** Run `npm i -D playwright && npx playwright install chromium` in the project. Until then only the static rules run.
+- **The preview URL doesn't open.** Another program may hold the port: HexaCore moves to the next free one, so use the URL the tool returns. With `HEXACORE_PREVIEW=off`, open `.hexagen/prototypes/<name>/index.html` instead.
 - **"Circuit breaker is OPEN".** The toolchain itself failed repeatedly (crashes or timeouts). Fix the environment; it retries automatically after 30 seconds.
 - **A lesson keeps being suggested but doesn't fit.** `rate_lesson` with `helpful: false`, or `retire: true`. Retired lessons stay on disk but are never offered.
 - **HexaCore keeps doing something I don't like.** Tell the model; it should `remember_preference` it. `resume_session` shows what HexaCore knows about how you work, and `forget_preference` removes it.

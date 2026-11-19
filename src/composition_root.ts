@@ -27,6 +27,14 @@ import { WorkspaceSnapshots } from './features/learning/services/workspace_snaps
 import { FixAttributor } from './features/learning/services/fix_attributor.js';
 import { LessonSearch } from './features/learning/domain/learning_types.js';
 import { ProfileService } from './features/user_profile/services/profile_service.js';
+import { UiCheckOutcome, UiCheckPort } from './features/quality_assurance/domain/qa_types.js';
+import { PrototypeStore } from './features/prototyping/services/prototype_store.js';
+import { PreviewServer } from './features/prototyping/services/preview_server.js';
+import { UiAuditor } from './features/prototyping/services/ui_auditor.js';
+import { PrototypePromoter } from './features/prototyping/services/prototype_promoter.js';
+import { BrowserDriver, PlaywrightDriver, loadPlaywright } from './features/prototyping/services/playwright_driver.js';
+import { UiAuditReport, UiFinding } from './features/prototyping/domain/prototype_types.js';
+import { ok, fail } from './shared/domain/result.js';
 
 export interface HexaCoreServices {
   workspace: WorkspaceContext;
@@ -45,6 +53,7 @@ export interface HexaCoreServices {
   learning: LearningService;
   lessons: LessonAuthoring;
   profile: ProfileService;
+  prototypes: { store: PrototypeStore; preview: PreviewServer; auditor: UiAuditor; promoter: PrototypePromoter };
   /** Set by the MCP server once the client proves it supports sampling. */
   llm: { client?: LlmClient };
 }
@@ -64,6 +73,10 @@ export interface HexaCoreOptions {
   lessonLibrary?: string | false;
   /** The user profile file (default <HEXACORE_HOME or ~/.hexacore>/profile.json; HEXACORE_PROFILE=off disables it). false disables it too. */
   userProfile?: string | false;
+  /** Local preview server for prototypes (default port $HEXACORE_PREVIEW_PORT or 4173; HEXACORE_PREVIEW=off disables it). false disables it too. */
+  preview?: { port?: number; keepAlive?: boolean } | false;
+  /** Browser for the rendered part of the 'ui' check (default: Playwright, when the project has it). */
+  browserDriver?: () => BrowserDriver | undefined;
 }
 
 function hexacoreHome(): string {
@@ -73,6 +86,12 @@ function hexacoreHome(): string {
 function libraryRoot(option: HexaCoreOptions['lessonLibrary']): string | undefined {
   if (option === false || (option === undefined && process.env.HEXACORE_LIBRARY === 'off')) return undefined;
   return option ? path.resolve(option) : hexacoreHome();
+}
+
+/** HEXACORE_PREVIEW_PORT (0 = any free port); 4173 by default. */
+function previewPortFromEnv(): number {
+  const port = Number(process.env.HEXACORE_PREVIEW_PORT);
+  return process.env.HEXACORE_PREVIEW_PORT && Number.isInteger(port) && port >= 0 && port < 65536 ? port : 4173;
 }
 
 function userProfilePath(option: HexaCoreOptions['userProfile']): string | undefined {
@@ -114,7 +133,26 @@ export function createHexaCore(options: HexaCoreOptions = {}): HexaCoreServices 
     { boostProvider: () => learning.documentBoost() }
   );
   const scaffolding = new ScaffoldingService(fileSystem, workspace, journal);
-  const qaRunner = new QARunnerService(processRunner, fileSystem);
+  const prototypeStore = new PrototypeStore(fileSystem, workspace, journal);
+  const preview = new PreviewServer(fileSystem, () => prototypeStore.root(), {
+    enabled: options.preview !== false && !(options.preview === undefined && process.env.HEXACORE_PREVIEW === 'off'),
+    port: (options.preview ? options.preview.port : undefined) ?? previewPortFromEnv(),
+    keepAlive: Boolean(options.preview && options.preview.keepAlive),
+  });
+  const browserDriver =
+    options.browserDriver ??
+    (() => {
+      const playwright = loadPlaywright(workspace.root);
+      return playwright ? new PlaywrightDriver(playwright) : undefined;
+    });
+  const uiAuditor = new UiAuditor(fileSystem, workspace, prototypeStore, preview, browserDriver);
+  const uiChecks: UiCheckPort = {
+    audit: async (spec) => {
+      const target = await prototypeStore.resolveTarget(spec);
+      return target.isSuccess ? ok(toUiOutcome(await uiAuditor.audit(target.value))) : fail(target.error);
+    },
+  };
+  const qaRunner = new QARunnerService(processRunner, fileSystem, uiChecks);
   const qaLoop = new QAAutonomousLoop(qaRunner, options.maxFixIterations ?? 3, journal);
   const architecture = new ArchitectureChecker(fileSystem, workspace);
 
@@ -150,6 +188,27 @@ export function createHexaCore(options: HexaCoreOptions = {}): HexaCoreServices 
       user: userProfileFile ? () => userProfileFile : undefined,
       project: () => workspace.hexagenPath('profile.json'),
     }),
+    prototypes: { store: prototypeStore, preview, auditor: uiAuditor, promoter: new PrototypePromoter(fileSystem, workspace, journal, prototypeStore) },
     llm,
+  };
+}
+
+/** Maps a UI audit onto QA's result vocabulary, so the learning loop treats it like any other check. */
+function toUiOutcome(report: UiAuditReport): UiCheckOutcome {
+  const details = (f: UiFinding) => ({
+    ...(f.file ? { file: f.file } : {}),
+    ...(f.line ? { line: f.line } : {}),
+    testName: f.viewport ? `${f.rule} (${f.viewport}, ${f.theme})` : f.rule,
+    errorMessage: f.selector ? `${f.message} [${f.selector}]` : f.message,
+  });
+  return {
+    target: report.target,
+    command: `hexacore ui ${report.target} (${report.rendered ? 'static + browser' : 'static'})`,
+    total: report.rulesChecked.length,
+    failures: report.findings.filter((f) => f.severity === 'error').map(details),
+    warnings: report.findings.filter((f) => f.severity === 'warning').map(details),
+    artifacts: report.screenshots,
+    notes: report.renderSkipped ? [report.renderSkipped] : [],
+    images: report.images,
   };
 }

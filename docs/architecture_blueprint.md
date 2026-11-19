@@ -66,14 +66,21 @@ HexaCore Agent is a local, governed engineering companion for the 11 stacks of t
 - **Model**: habits are derived from the counters only above evidence thresholds. Stated preferences are remembered by the client model (`remember_preference`), in user or project scope.
 - **Use**: preferences and habits open the `resume_session` briefing, so the model adapts before acting. Local files only; credential-like text is refused; everything can be forgotten.
 
-## 8. Resilience and Safety
+## 8. UI Prototyping
+- **Slice** `prototyping`: `PrototypeStore` (each version is one checkpoint holding the current files, an archive and the metadata, so a rollback is complete), `PreviewServer` (`node:http` on 127.0.0.1, reads through `IFileSystem`, Host-checked, live reload by polling the current version), `UiAuditor` (static rules over the source, then a `BrowserDriver`), `PrototypePromoter`.
+- **The `ui` check is a QA check**: `QARunnerService` delegates it to a `UiCheckPort` that the composition root implements with the auditor, mapping findings onto QA's vocabulary (errors → failures, warnings → warnings, rule + viewport + theme → test name). Learning, snapshots and diff attribution work unchanged; the check runs in the audited page's directory, so the diff is that page's change.
+- **Browser**: Playwright is loaded from the project (or next to HexaCore) at call time; it is not a dependency. A probe script in the page reports overflow, contrast and clipping; console errors and failed requests come from page events.
+- **Images**: results carry screenshots on a non-enumerable symbol (`attachImages`), which the MCP layer turns into image content after the JSON text, so the image data never bloats the text the model reads.
+
+## 9. Resilience and Safety
 - Process execution without a shell, allowlisted executables, Windows process-tree kill on timeout.
 - Circuit breaker per `stack:check` bucket that trips only on infrastructure failures.
 - State writes are atomic (temp file + rename) and serialized; checkpoint journals are written before the files they protect.
 
-## 9. Verification Strategy
+## 10. Verification Strategy
 - Unit and integration tests (including a real MCP client over an in-memory transport).
 - `scripts/mcp_smoke.mjs`: the built server over real stdio.
 - `scripts/e2e_stack.mjs`: for each of the 11 stacks, scaffold two slices into a minimal host project and require the stack's own compiler, test runner and HexaCore's architecture audit to pass (CI matrix).
 - `scripts/pack_smoke.mjs`: `npm pack`, install the tarball into an empty project, run the MCP smoke test against the installed launcher and the CLI against its bundled rules; also checks `server.json` (MCP registry) matches `package.json` (CI, Linux and Windows).
 - `scripts/e2e_learning.mjs`: break and fix a generated Go slice with the real `go test`, and require the episode, the lesson, diff-backed credit, skill export and the library to work across two projects (CI).
+- `scripts/e2e_ui.mjs`: with Chromium and the real preview server, a prototype that only breaks on a phone must be caught by the rendered check, fixed, turned into a lesson that is offered and credited on a second prototype, and promoted and re-checked in place (CI).

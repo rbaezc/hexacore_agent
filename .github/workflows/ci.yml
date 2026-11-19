@@ -50,6 +50,23 @@ jobs:
       - name: Learning loop on a real Go project (scripts/e2e_learning.mjs)
         run: node scripts/e2e_learning.mjs
 
+  # Proof that UI prototyping works with a real browser: a page that only breaks on a phone is caught,
+  # fixed, learned from (lesson offered and credited on the next prototype) and promoted.
+  e2e-ui-prototyping:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: UI prototyping with Chromium (scripts/e2e_ui.mjs)
+        run: node scripts/e2e_ui.mjs
+
   # Proof that generated slices are real code: scaffold into a minimal host project and
   # require each stack's own compiler + test runner to pass (scripts/e2e_stack.mjs).
   e2e-generated-code:

@@ -28,7 +28,7 @@ describe('HexaCore MCP server (real client over in-memory transport)', () => {
     const { client } = await connect();
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['resume_session', 'execute_scaffolding', 'run_quality_assurance', 'check_architecture', 'orchestrate_task', 'resume_plan', 'rollback_changes', 'record_decision', 'define_contract', 'record_handoff', 'record_lesson', 'rate_lesson', 'review_lessons', 'export_skills', 'share_lessons', 'merge_lessons', 'remember_preference', 'forget_preference']));
+    expect(names).toEqual(expect.arrayContaining(['resume_session', 'execute_scaffolding', 'run_quality_assurance', 'check_architecture', 'orchestrate_task', 'resume_plan', 'rollback_changes', 'record_decision', 'define_contract', 'record_handoff', 'record_lesson', 'rate_lesson', 'review_lessons', 'export_skills', 'share_lessons', 'merge_lessons', 'remember_preference', 'forget_preference', 'create_prototype', 'list_prototypes', 'promote_prototype']));
 
     const scaffold = tools.find((t) => t.name === 'execute_scaffolding')!;
     expect((scaffold.inputSchema.properties as any).stack.enum).toEqual(['node']);
@@ -61,7 +61,7 @@ describe('HexaCore MCP server (real client over in-memory transport)', () => {
     expect(resources.map((r) => r.uri)).toContain('hexacore://session/briefing');
 
     const { prompts } = await client.listPrompts();
-    expect(prompts.map((p) => p.name)).toEqual(['design_feature', 'implement_slice', 'fix_failing_checks']);
+    expect(prompts.map((p) => p.name)).toEqual(['design_feature', 'implement_slice', 'fix_failing_checks', 'prototype_ui']);
     const prompt = await client.getPrompt({ name: 'design_feature', arguments: { requirement: 'Refunds' } });
     expect((prompt.messages[0].content as any).text).toContain('Refunds');
   });

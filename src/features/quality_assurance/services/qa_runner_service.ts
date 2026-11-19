@@ -3,7 +3,8 @@ import * as path from 'node:path';
 import { IProcessRunner, ProcessExecutionResult } from '../../../shared/infrastructure/process_runner.js';
 import { IFileSystem, NodeFileSystem } from '../../../shared/infrastructure/file_system.js';
 import { Result, ok, fail } from '../../../shared/domain/result.js';
-import { ParsedReport, QACheck, QARunnerOptions, QAResult } from '../domain/qa_types.js';
+import { ParsedReport, QACheck, QARunnerOptions, QAResult, UiCheckPort } from '../domain/qa_types.js';
+import { attachImages } from '../../../shared/domain/attachments.js';
 import { CheckCatalog, CheckInvocation, Executable } from './check_catalog.js';
 import { heuristicParse, parseDiagnostics } from './parsers/text_reporters.js';
 import { firstLine, tail } from './parsers/report_utils.js';
@@ -13,7 +14,8 @@ export class QARunnerService {
 
   constructor(
     private readonly processRunner: IProcessRunner,
-    private readonly fileSystem: IFileSystem = new NodeFileSystem()
+    private readonly fileSystem: IFileSystem = new NodeFileSystem(),
+    private readonly uiChecks?: UiCheckPort
   ) {
     this.catalog = new CheckCatalog(fileSystem);
   }
@@ -35,6 +37,7 @@ export class QARunnerService {
   }
 
   async runCheck(options: QARunnerOptions, check: QACheck): Promise<Result<QAResult, Error>> {
+    if (check === 'ui') return this.runUi(options);
     const cwd = options.cwd || process.cwd();
     // Scope tokens become literal argv entries; no shell ever interprets them.
     const scope = options.scope ? options.scope.trim().split(/\s+/).filter(Boolean) : [];
@@ -70,6 +73,37 @@ export class QARunnerService {
     } finally {
       await this.fileSystem.remove(reportDir).catch(() => undefined);
     }
+  }
+
+  /** The 'ui' check audits a page (scope = the target) instead of running a toolchain. */
+  private async runUi(options: QARunnerOptions): Promise<Result<QAResult, Error>> {
+    if (!this.uiChecks) return ok(this.skipped(options, 'ui', 'UI checks are not available in this setup.', ''));
+    const startedAt = Date.now();
+    const audited = await this.uiChecks.audit(options.scope?.trim() || undefined);
+    if (audited.isFailure) return fail(audited.error);
+    const o = audited.value;
+    const failed = o.failures.length;
+    const result: QAResult = {
+      stack: options.stack,
+      check: 'ui',
+      status: failed ? 'failed' : 'passed',
+      passed: failed === 0,
+      command: o.command,
+      reportFormat: 'audit',
+      totalTests: o.total,
+      passedTests: Math.max(0, o.total - new Set(o.failures.map((f) => f.testName)).size),
+      failedTestsCount: failed,
+      skippedTests: 0,
+      failures: o.failures.slice(0, 50),
+      target: o.target,
+      warnings: o.warnings.slice(0, 50),
+      artifacts: o.artifacts,
+      notes: o.notes,
+      durationMs: Date.now() - startedAt,
+      rawStdout: '',
+      rawStderr: '',
+    };
+    return ok(attachImages(result, o.images));
   }
 
   private async execute(

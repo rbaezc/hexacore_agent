@@ -295,9 +295,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 20.2 7.25v9.5L12 21.5 3.8 16.75v-9.5Z" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/><path d="M12 8.2 15.3 10.1v3.8L12 15.8 8.7 13.9v-3.8Z" fill="var(--accent)"/></svg>
       HexaCore <span>Agent</span>
     </a>
-    <span class="version">v3.3.0</span>
+    <span class="version">v3.4.0</span>
     <nav class="links" aria-label="Main">
       <a class="opt" href="#install">Install</a>
+      <a class="opt" href="#prototypes">Prototypes</a>
       <a class="opt" href="#tools">Tools</a>
       <a class="opt" href="#faq">FAQ</a>
       <a href="https://github.com/rbaezc/hexacore_agent/blob/master/docs/hexagen_user_manual.md">Docs</a>
@@ -477,10 +478,47 @@
     </div>
   </section>
 
+  <section id="prototypes">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">UI prototypes</span>
+        <h2>Design the screen first, and check it in a real browser.</h2>
+        <p class="lead">Your agent writes the page; HexaCore Agent versions it, serves it on your machine, checks it at phone and desktop width in light and dark mode, and moves the approved version into your project.</p>
+      </div>
+      <ol class="loop">
+        <li>
+          <span class="n">1</span>
+          <span class="state acc">v1, v2…</span>
+          <h3>Prototype</h3>
+          <p><code>create_prototype</code> saves each version as a checkpoint and returns a preview on <code>127.0.0.1</code> that reloads by itself.</p>
+        </li>
+        <li>
+          <span class="n">2</span>
+          <span class="state red">ui</span>
+          <h3>Check</h3>
+          <p>14 rules on the source, then Chromium at 390px and 1280px: overflow, contrast, clipped text, console errors, with screenshots the model can see.</p>
+        </li>
+        <li>
+          <span class="n">3</span>
+          <span class="state green">green</span>
+          <h3>Learn</h3>
+          <p>A UI failure that turns green is an episode like a failing test. The next prototype gets the lesson before it repeats the mistake.</p>
+        </li>
+        <li>
+          <span class="n">4</span>
+          <span class="state acc">promote</span>
+          <h3>Ship it</h3>
+          <p><code>promote_prototype</code> copies a page into place and checks it there, or hands a React or Flutter slice the tokens and markup to port.</p>
+        </li>
+      </ol>
+      <p class="loop-back"><b>/prototype_ui</b> runs the whole flow. Browser checks need Playwright in the project: <code>npm i -D playwright</code>.</p>
+    </div>
+  </section>
+
   <section id="tools">
     <div class="wrap">
       <div class="section-head">
-        <span class="eyebrow">20 tools</span>
+        <span class="eyebrow">23 tools</span>
         <h2>Everything an agent needs between "add refunds" and a green build.</h2>
       </div>
       <div class="phases">
@@ -510,9 +548,17 @@
         <div class="phase">
           <div><h3>Verify and undo</h3><p class="why">Real toolchains, exact rollback.</p></div>
           <dl class="tools">
-            <div><dt>run_quality_assurance</dt><dd>Build, typecheck, lint and test with structured failures.</dd></div>
+            <div><dt>run_quality_assurance</dt><dd>Build, typecheck, lint, test and ui, with structured failures.</dd></div>
             <div><dt>list_checkpoints</dt><dd>Every write HexaCore Agent made, newest first.</dd></div>
             <div><dt>rollback_changes</dt><dd>All-or-nothing return to any checkpoint.</dd></div>
+          </dl>
+        </div>
+        <div class="phase">
+          <div><h3>Prototype UI</h3><p class="why">See it before you build it.</p></div>
+          <dl class="tools">
+            <div><dt>create_prototype</dt><dd>A new version of a page, from full HTML or small edits, with a live preview.</dd></div>
+            <div><dt>list_prototypes</dt><dd>Versions, targets, promotions and preview links.</dd></div>
+            <div><dt>promote_prototype</dt><dd>Copy the approved page into place, or get what a framework port needs.</dd></div>
           </dl>
         </div>
         <div class="phase">
@@ -535,7 +581,7 @@
           </dl>
         </div>
       </div>
-      <p class="prompts">Guided prompts for your client's slash menu: <code>/design_feature</code>, <code>/implement_slice</code> and <code>/fix_failing_checks</code>. Every rule document and the session briefing are also exposed as MCP resources.</p>
+      <p class="prompts">Guided prompts for your client's slash menu: <code>/design_feature</code>, <code>/implement_slice</code>, <code>/fix_failing_checks</code> and <code>/prototype_ui</code>. Every rule document and the session briefing are also exposed as MCP resources.</p>
     </div>
   </section>
 
@@ -601,6 +647,11 @@ hexacore scaffold rust payments --workspace ../shop
 hexacore qa rust --checks typecheck,test --workspace ../shop
 hexacore arch --strict --workspace ../shop
 
+<span class="c"># check a page, serve prototypes, promote one</span>
+hexacore ui landing --workspace ../shop
+hexacore preview --open --workspace ../shop
+hexacore promote landing docs/index.html --workspace ../shop
+
 <span class="c"># what it has learned, and undo</span>
 hexacore lessons --workspace ../shop
 hexacore rollback cp_7f3a --workspace ../shop</pre>
@@ -631,6 +682,10 @@ hexacore rollback cp_7f3a --workspace ../shop</pre>
           <p>Yes. When you state a lasting preference, the model saves it with <code>remember_preference</code>. HexaCore Agent also notices habits from how you use it: your stacks, the checks you run, whether you preview scaffolding, how often you roll back. Both open every briefing, and <code>forget_preference</code> removes them. <code>HEXACORE_PROFILE=off</code> turns the user profile off.</p>
         </details>
         <details>
+          <summary>Can it design and check UI?</summary>
+          <p>Yes. Your agent writes the page and HexaCore Agent keeps it honest: versions with rollback, a local preview, 14 static rules, and with Playwright installed, a real browser pass at phone and desktop width in light and dark mode. Approved pages are copied into place and checked again; for React, Flutter and other frameworks you get the design tokens and the steps to port it.</p>
+        </details>
+        <details>
           <summary>Can I use it in an existing project?</summary>
           <p>Yes. It detects the stack and the existing layout, and new slices follow your folders and naming. Add your own conventions as markdown in <code>.hexagen/rules/</code> and your ADRs in <code>docs/adr/</code>; both are searched next to the bundled rules.</p>
         </details>
@@ -641,7 +696,7 @@ hexacore rollback cp_7f3a --workspace ../shop</pre>
 
 <footer>
   <div class="wrap">
-    <span class="grow">HexaCore Agent 3.3.0 · MIT · © 2026 Vortex Solutions · part of the HexaGen suite</span>
+    <span class="grow">HexaCore Agent 3.4.0 · MIT · © 2026 Vortex Solutions · part of the HexaGen suite</span>
     <a href="https://github.com/rbaezc/hexacore_agent/blob/master/docs/hexagen_user_manual.md">Manual</a>
     <a href="https://github.com/rbaezc/hexacore_agent/blob/master/CHANGELOG.md">Changelog</a>
     <a href="https://github.com/rbaezc/hexacore_agent">GitHub</a>

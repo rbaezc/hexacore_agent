@@ -59,4 +59,25 @@ ${a.stack ? `Stack: ${a.stack}\n` : ''}
 6. Close the learning loop: rate_lesson for each suggested lesson you used or rejected (HexaCore only credits lessons the fix resembles, so rate the ones it missed); when a check is reported as resolved and the root cause could recur, record_lesson with its episodeId (update an existing lesson with updateId instead of duplicating it).
 7. Finish with check_architecture and a short summary of root causes.`,
   },
+  {
+    name: 'prototype_ui',
+    title: 'Prototype a UI (prototype → check → promote)',
+    description: 'Designs a page or screen as a live HTML prototype, verifies it in a browser, and takes the approved version into the project.',
+    arguments: [
+      { name: 'request', description: 'What to design, e.g. "landing page for the product"', required: true },
+      { name: 'target', description: 'Where it should end up (optional), e.g. docs/index.html or src/features/landing', required: false },
+    ],
+    render: (a) => `Prototype this UI with HexaCore before building it.
+
+Request: ${a.request}
+${a.target ? `Target: ${a.target}
+` : ''}
+1. Call resume_session (follow "How this user works"), then search_knowledge_base for "ui conventions" and for any brand or design rules of this project.
+2. Settle the design in a few lines before writing: the audience and the page's one job, color tokens for light and dark, type roles, the layout idea. Use real content from the project, never lorem ipsum.
+3. create_prototype with a short name${a.target ? ` and target "${a.target}"` : ''} and the full HTML page. Fix any static problems it reports with edits.
+4. run_quality_assurance with checks ["ui"] and that target name. Look at the screenshots, fix every failure (use the suggested lessons first), and run it again until it is green.
+5. Give me the preview URL and a two-line summary of the design, then wait for my feedback. Apply each round of feedback with edits (a new version each time) and re-check.
+6. When I approve, promote_prototype into the target. For a framework target, follow the steps it returns, then verify with checks ["typecheck","test"] and ["ui"] against the dev server URL.
+7. If a ui failure went green and the cause could recur, record_lesson with its episodeId.`,
+  },
 ];

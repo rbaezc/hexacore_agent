@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026-11-11
+
+### Added
+
+- **UI prototyping** (new `prototyping` slice):
+  - `create_prototype` saves a version of an HTML prototype in `.hexagen/prototypes/<name>/`, from a full page or from `edits` to a chosen version (`basedOn`). Each version is one checkpoint (current files, archive and metadata), so `rollback_changes` undoes it completely.
+  - A local preview server (127.0.0.1 only, read-only, Host-checked) serves every prototype and reloads the current version when a new one is saved. Started on first use; `HEXACORE_PREVIEW=off`, `HEXACORE_PREVIEW_PORT`.
+  - `list_prototypes`, and `promote_prototype`: copies a version to an `.html` target through a checkpoint and audits it there, or returns tokens, markup and steps to port it into a framework slice.
+  - `/prototype_ui` prompt and `docs/rules/ui_conventions.md`, searchable in English and Spanish.
+- **`ui` check** in `run_quality_assurance` (new `target` argument: a prototype, an `.html` file or a localhost URL):
+  - 14 static rules on the source, always available.
+  - With Playwright installed in the project: rendering at phone and desktop width in light and dark mode for overflow, contrast, clipped text, console errors and failed requests, with screenshots.
+  - Failures feed the learning loop like failing tests: episodes, lessons, suggestions and credit by diff.
+- **Images in tool results**: screenshots are returned as MCP image content next to the JSON, so clients that display images let the model see the page.
+- CLI: `prototype`, `prototypes`, `ui`, `promote`, `preview [--port] [--open]`, and `qa --target`.
+- `scripts/e2e_ui.mjs` (`npm run e2e:ui`, CI job with Chromium); the MCP smoke test also saves and fetches a prototype over real stdio.
+
+### Changed
+
+- `orchestrate_task` keeps to toolchain checks (`test`, `typecheck`, `lint`, `build`).
+- Saving or promoting a prototype counts as a write in the observed habits (rollback rate).
+- Playwright is a dev dependency of HexaCore for its own tests; it is not installed with the package.
+
 ## [3.3.0] - 2026-11-03
 
 ### Added

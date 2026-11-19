@@ -17,7 +17,8 @@ const transport = new StdioClientTransport({
   args: [process.env.HEXACORE_SMOKE_LAUNCHER ?? path.join(repo, 'dist/cli/mcp_launcher.js')],
   cwd: workspace,
   // Keep the user's lesson library and profile (~/.hexacore) out of the test.
-  env: { ...process.env, HEXACORE_HOME: path.join(workspace, '.hexacore-home') },
+  // Port 0: the preview server takes any free port, so the smoke never clashes with a running one.
+  env: { ...process.env, HEXACORE_HOME: path.join(workspace, '.hexacore-home'), HEXACORE_PREVIEW_PORT: '0' },
   stderr: 'inherit',
 });
 const client = new Client({ name: 'hexacore-smoke', version: '1.0.0' });
@@ -53,7 +54,16 @@ try {
   assert(resources.some((r) => r.uri.startsWith('hexacore://knowledge/bundled/')), `${resources.length} resources exposed`);
 
   const { prompts } = await client.listPrompts();
-  assert(prompts.length === 3, 'guided prompts exposed');
+  assert(prompts.length === 4, 'guided prompts exposed');
+
+  const ui = await client.callTool({ name: 'search_knowledge_base', arguments: { query: 'modo oscuro y contraste de la interfaz' } });
+  assert(!ui.isError && ui.structuredContent.snippets.some((s) => /UI Conventions/.test(s.title ?? s.heading ?? '')), 'UI rules found (Spanish query)');
+
+  const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Smoke</title></head><body><h1>Smoke page</h1></body></html>';
+  const proto = await client.callTool({ name: 'create_prototype', arguments: { name: 'smoke', html } });
+  assert(!proto.isError && proto.structuredContent.version === 1, 'prototype saved');
+  const served = await (await fetch(proto.structuredContent.previewUrl)).text();
+  assert(served.includes('<h1>Smoke page</h1>'), `prototype served at ${proto.structuredContent.previewUrl}`);
   console.log('MCP smoke test passed.');
 } finally {
   await client.close().catch(() => undefined);

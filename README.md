@@ -15,6 +15,7 @@ Your AI client plans and writes code. HexaCore makes that work **compliant, veri
 | Continue tomorrow | Persisted plans, ADRs, QA history and handoff notes behind `resume_session` |
 | Get better with use | A learning loop: resolved failures become lessons, lessons are credited only when the actual fix matches them, proven ones become Claude Code skills and travel to your other projects |
 | Adapt to you | A user model across sessions: preferences you state, plus habits observed from how you actually work, at the top of every briefing |
+| Prototype UI | HTML prototypes with versions and a local live preview, a `ui` check (static rules, plus phone/desktop and light/dark rendering with screenshots), and promotion into the project |
 
 Generated code is not a template demo: CI scaffolds two slices into a minimal host project for **each of the 11 stacks** and requires the real toolchain (`dotnet`, `cargo`, `mix`, `go`, `flutter`, `pytest`, `phpunit`, `rspec`, `tsc` + `vitest`) to compile it and pass its tests.
 
@@ -73,6 +74,19 @@ record_lesson (episodeId)              → when a check went green: keep what yo
 - Both open every `resume_session` briefing, so each session starts adapted to you.
 - Local files only (`~/.hexacore/profile.json`, `.hexagen/profile.json`). Credential-like text is refused. `forget_preference` removes one preference, the observed habits (`observed: true`) or everything (`all: true`). `HEXACORE_PROFILE=off` disables the user profile.
 
+## UI prototypes
+
+Design a page or screen before building it, with the same guarantees as code: versioned, checked, reversible and learned from.
+
+1. **Prototype**: `create_prototype` saves the page as a new version in `.hexagen/prototypes/<name>/` (the whole page, or `edits` to the current version) and returns a preview URL on `127.0.0.1` that reloads by itself when a new version is saved.
+2. **Check**: `run_quality_assurance` with `checks: ["ui"]` and a `target` (a prototype, an `.html` file, or a `http://localhost` dev server):
+   - static rules always run: viewport and title, tokens that resolve to nothing in one theme, missing dark mode, fixed widths wider than a phone, unlabeled images, buttons and inputs, heading order, broken anchors, unpinned CDN scripts;
+   - with Playwright in the project (`npm i -D playwright && npx playwright install chromium`), the page is also rendered at 390px and 1280px in light and dark mode: horizontal overflow, text contrast, clipped text, console errors and failed requests, with screenshots in `.hexagen/prototypes/.shots/`. Two of them are attached to the result so the model can look at the page.
+3. **Learn**: a `ui` failure that goes green is an episode like a failing test, so lessons about UI mistakes are offered and credited by the actual fix.
+4. **Promote**: `promote_prototype` copies the approved version to an `.html` target through a checkpoint and checks it there; for a slice of a React, Flutter… app it returns the design tokens (light and dark), the markup and the steps to port it.
+
+The `/prototype_ui` prompt runs the whole flow, and `search_knowledge_base "ui conventions"` returns the UI rules HexaCore checks against. `HEXACORE_PREVIEW=off` disables the preview server; `HEXACORE_PREVIEW_PORT` changes its port (default 4173).
+
 ## Learning loop
 
 HexaCore learns from what actually happens in your project, and checks its lessons against the stack's real test results instead of the model's opinion of itself:
@@ -87,9 +101,9 @@ HexaCore learns from what actually happens in your project, and checks its lesso
 
 ## Tools
 
-`resume_session` · `search_knowledge_base` · `execute_scaffolding` · `run_quality_assurance` · `check_architecture` · `orchestrate_task` · `resume_plan` · `list_checkpoints` · `rollback_changes` · `record_decision` · `define_contract` · `record_handoff` · `record_lesson` · `rate_lesson` · `review_lessons` · `export_skills` · `share_lessons` · `merge_lessons` · `remember_preference` · `forget_preference`
+`resume_session` · `search_knowledge_base` · `execute_scaffolding` · `run_quality_assurance` · `check_architecture` · `orchestrate_task` · `resume_plan` · `list_checkpoints` · `rollback_changes` · `record_decision` · `define_contract` · `record_handoff` · `record_lesson` · `rate_lesson` · `review_lessons` · `export_skills` · `share_lessons` · `merge_lessons` · `remember_preference` · `forget_preference` · `create_prototype` · `list_prototypes` · `promote_prototype`
 
-Prompts: `design_feature`, `implement_slice`, `fix_failing_checks`. Resources: every rule document and the session briefing.
+Prompts: `design_feature`, `implement_slice`, `fix_failing_checks`, `prototype_ui`. Resources: every rule document and the session briefing.
 
 Full reference: [docs/hexagen_user_manual.md](docs/hexagen_user_manual.md). Design: [docs/architecture_blueprint.md](docs/architecture_blueprint.md). Rules: [docs/rules/](docs/rules/).
 
@@ -100,6 +114,10 @@ npm start -- scaffold go orders --dryRun --workspace ../shop
 npm start -- qa go --checks build,lint,test --workspace ../shop
 npm start -- arch --workspace ../shop
 npm start -- lessons --workspace ../shop
+npm start -- prototype landing ./draft.html --workspace ../shop
+npm start -- ui landing --workspace ../shop
+npm start -- preview --open --workspace ../shop
+npm start -- promote landing docs/index.html --workspace ../shop
 ```
 
 JSON on stdout; exit code `2` when checks aren't green.
@@ -112,6 +130,7 @@ npm run build && node scripts/mcp_smoke.mjs   # built server over real stdio
 node scripts/e2e_stack.mjs go  # or: all | node,rust,... (needs those toolchains)
 npm run e2e:learning           # learning loop on a real Go project (needs Go)
 npm run e2e:pack               # npm pack → install → MCP smoke, as users get it
+npm run e2e:ui                 # UI prototyping with a real browser (needs: npx playwright install chromium)
 npx tsx src/cli/hexacore_cli.ts arch src --strict   # self-audit, warnings fail too
 ```
 
@@ -126,6 +145,8 @@ npx tsx src/cli/hexacore_cli.ts arch src --strict   # self-audit, warnings fail 
 - `hexacore.json` — optional project config, e.g. `{ "architecture": { "compositionSlices": ["orchestrator"] } }`: slices that exist to coordinate others (orchestrators, API or tool layers) may use their public modules without warnings; reaching their internals is still an error.
 - `.hexagen/profile.json` and `~/.hexacore/profile.json` — preferences for this project and for you, and your observed habits.
 - `~/.hexacore/lessons/` and `~/.hexacore/learning.json` — your lesson library, shared across projects, when you share lessons (outside the project).
+- `.hexagen/prototypes/` — UI prototypes: the current version of each in `<name>/`, every version in `.versions/`, metadata in `.meta/` and screenshots in `.shots/`.
+- `.hexagen/ui-shots/` — screenshots of `ui` checks on pages that are not prototypes.
 - `docs/adr/`, `contracts/` — decisions and API contracts, when you ask for them.
 
 ## License
