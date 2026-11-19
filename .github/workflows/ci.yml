@@ -30,6 +30,8 @@ jobs:
         run: node scripts/pack_smoke.mjs
       - name: HexaCore audits its own architecture (no errors, no warnings)
         run: npx tsx src/cli/hexacore_cli.ts arch src --strict
+      - name: Watch mode and typed voice commands through the CLI (scripts/e2e_watch.mjs)
+        run: node scripts/e2e_watch.mjs
 
   # Proof that the learning loop works on a real project: break and fix a generated Go slice and
   # require episodes, lessons, diff-backed credit, skill export and the cross-project library to work.
