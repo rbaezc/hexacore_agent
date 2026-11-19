@@ -16,6 +16,7 @@ Your AI client plans and writes code. HexaCore makes that work **compliant, veri
 | Get better with use | A learning loop: resolved failures become lessons, lessons are credited only when the actual fix matches them, proven ones become Claude Code skills and travel to your other projects |
 | Adapt to you | A user model across sessions: preferences you state, plus habits observed from how you actually work, at the top of every briefing |
 | Prototype UI | HTML prototypes with versions and a local live preview, a `ui` check (static rules, plus phone/desktop and light/dark rendering with screenshots), and promotion into the project |
+| Speak up | Watch mode re-runs checks on save and alerts (terminal, desktop, voice) only when one breaks or is fixed; voice commands with offline speech-to-text |
 
 Generated code is not a template demo: CI scaffolds two slices into a minimal host project for **each of the 11 stacks** and requires the real toolchain (`dotnet`, `cargo`, `mix`, `go`, `flutter`, `pytest`, `phpunit`, `rspec`, `tsc` + `vitest`) to compile it and pass its tests.
 
@@ -87,6 +88,18 @@ Design a page or screen before building it, with the same guarantees as code: ve
 
 The `/prototype_ui` prompt runs the whole flow, and `search_knowledge_base "ui conventions"` returns the UI rules HexaCore checks against. `HEXACORE_PREVIEW=off` disables the preview server; `HEXACORE_PREVIEW_PORT` changes its port (default 4173).
 
+## Watch mode and voice
+
+```bash
+hexacore watch --lang es        # typecheck + tests a moment after each save
+hexacore voice setup            # checks ffmpeg + microphone and whisper.cpp, downloads the model
+hexacore listen --lang es       # Enter to talk, Enter to stop (or type the command)
+```
+
+- **Watch**: a couple of seconds after the last save (`--debounce`), `hexacore watch` runs `typecheck` and `test` (`--checks`) for every stack in the workspace, one run at a time. It interrupts you only when a check changes colour: "The typecheck broke in orders service", "The tests are green again". Alerts go to the terminal, a desktop notification and the system voice (`--notify console,desktop,voice`), in English or Spanish (`--lang`, `HEXACORE_LANG`, or the system locale). Every run is recorded in the QA history and the learning loop, so `resume_session` tells the next session what watch mode saw. Dependencies, build output, dot-directories and simple `.gitignore` entries don't trigger runs.
+- **Voice**: `hexacore listen` records with ffmpeg and transcribes with [whisper.cpp](https://github.com/ggml-org/whisper.cpp) on your machine; audio never leaves it. It understands, in Spanish or English: where we left off, run the tests / typecheck / lint / build, is anything broken, list or open prototypes, list checkpoints, undo the last change, help, exit. Undoing is described first and runs only after a spoken "yes"; a rollback that would overwrite later edits is reported, never forced. `--mute` answers in text only.
+- **Setup**: ffmpeg on `PATH` (`HEXACORE_FFMPEG`), whisper.cpp's `whisper-cli` in `~/.hexacore/whisper/` or on `PATH` (`HEXACORE_WHISPER`), and a model (`voice setup --model tiny|base|small|medium`, default `base`, ~148 MB; `HEXACORE_WHISPER_MODEL`). `HEXACORE_MIC` picks the microphone.
+
 ## Learning loop
 
 HexaCore learns from what actually happens in your project, and checks its lessons against the stack's real test results instead of the model's opinion of itself:
@@ -118,6 +131,8 @@ npm start -- prototype landing ./draft.html --workspace ../shop
 npm start -- ui landing --workspace ../shop
 npm start -- preview --open --workspace ../shop
 npm start -- promote landing docs/index.html --workspace ../shop
+npm start -- watch --lang es --workspace ../shop
+npm start -- listen --lang es --workspace ../shop
 ```
 
 JSON on stdout; exit code `2` when checks aren't green.
@@ -131,6 +146,7 @@ node scripts/e2e_stack.mjs go  # or: all | node,rust,... (needs those toolchains
 npm run e2e:learning           # learning loop on a real Go project (needs Go)
 npm run e2e:pack               # npm pack → install → MCP smoke, as users get it
 npm run e2e:ui                 # UI prototyping with a real browser (needs: npx playwright install chromium)
+npm run e2e:watch              # watch mode + typed voice commands through the built CLI
 npx tsx src/cli/hexacore_cli.ts arch src --strict   # self-audit, warnings fail too
 ```
 
@@ -147,6 +163,7 @@ npx tsx src/cli/hexacore_cli.ts arch src --strict   # self-audit, warnings fail 
 - `~/.hexacore/lessons/` and `~/.hexacore/learning.json` — your lesson library, shared across projects, when you share lessons (outside the project).
 - `.hexagen/prototypes/` — UI prototypes: the current version of each in `<name>/`, every version in `.versions/`, metadata in `.meta/` and screenshots in `.shots/`.
 - `.hexagen/ui-shots/` — screenshots of `ui` checks on pages that are not prototypes.
+- `~/.hexacore/models/` and `~/.hexacore/whisper/` — the Whisper model and (optionally) whisper.cpp, for voice commands (outside the project).
 - `docs/adr/`, `contracts/` — decisions and API contracts, when you ask for them.
 
 ## License

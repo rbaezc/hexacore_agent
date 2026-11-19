@@ -295,10 +295,11 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 20.2 7.25v9.5L12 21.5 3.8 16.75v-9.5Z" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/><path d="M12 8.2 15.3 10.1v3.8L12 15.8 8.7 13.9v-3.8Z" fill="var(--accent)"/></svg>
       HexaCore <span>Agent</span>
     </a>
-    <span class="version">v3.4.0</span>
+    <span class="version">v3.5.0</span>
     <nav class="links" aria-label="Main">
       <a class="opt" href="#install">Install</a>
       <a class="opt" href="#prototypes">Prototypes</a>
+      <a class="opt" href="#watch">Watch</a>
       <a class="opt" href="#tools">Tools</a>
       <a class="opt" href="#faq">FAQ</a>
       <a href="https://github.com/rbaezc/hexacore_agent/blob/master/docs/hexagen_user_manual.md">Docs</a>
@@ -512,6 +513,43 @@
         </li>
       </ol>
       <p class="loop-back"><b>/prototype_ui</b> runs the whole flow. Browser checks need Playwright in the project: <code>npm i -D playwright</code>.</p>
+    </div>
+  </section>
+
+  <section id="watch">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Watch mode and voice</span>
+        <h2>It tells you when something breaks. You can answer out loud.</h2>
+        <p class="lead"><code>hexacore watch</code> re-runs your checks a moment after you save and speaks up only when one changes colour. <code>hexacore listen</code> takes spoken commands, transcribed on your machine.</p>
+      </div>
+      <ol class="loop">
+        <li>
+          <span class="n">1</span>
+          <span class="state acc">save</span>
+          <h3>Watch</h3>
+          <p>Typecheck and tests run a couple of seconds after the last change, one run at a time, for every stack in the project.</p>
+        </li>
+        <li>
+          <span class="n">2</span>
+          <span class="state red">broke</span>
+          <h3>Alert</h3>
+          <p>"The typecheck broke in orders service": in the terminal, as a desktop notification and out loud, in English or Spanish.</p>
+        </li>
+        <li>
+          <span class="n">3</span>
+          <span class="state green">fixed</span>
+          <h3>Remember</h3>
+          <p>Every run lands in the QA history, so the next session's <code>resume_session</code> knows what watch mode saw.</p>
+        </li>
+        <li>
+          <span class="n">4</span>
+          <span class="state acc">listen</span>
+          <h3>Talk</h3>
+          <p>"Where did we leave off?", "run the tests", "undo the last change". Changes wait for a spoken yes.</p>
+        </li>
+      </ol>
+      <p class="loop-back">Speech-to-text is <b>whisper.cpp</b>, offline: audio never leaves your machine. <code>hexacore voice setup</code> checks the microphone and downloads the model.</p>
     </div>
   </section>
 

@@ -23,7 +23,7 @@ const STACKS = {
   go: { setup: [], checks: ['build', 'lint', 'test'], minTests: 4 },
   rust: { setup: [], checks: ['typecheck', 'test'], minTests: 4 },
   dotnet: {
-    setup: ['dotnet new sln -n Shop --format sln', 'dotnet sln Shop.sln add src/Shop.Api/Shop.Api.csproj tests/Shop.Tests/Shop.Tests.csproj'],
+    setup: ['dotnet new sln -n Shop --format sln', 'dotnet sln Shop.sln add --include-references false src/Shop.Api/Shop.Api.csproj tests/Shop.Tests/Shop.Tests.csproj'],
     checks: ['build', 'test'],
     minTests: 4,
   },
