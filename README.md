@@ -6,6 +6,8 @@
 [![CI](https://github.com/rbaezc/hexacore_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/rbaezc/hexacore_agent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
+![HexaCore Agent demo: scaffold a slice, audit it, watch mode catches a saved bug and its fix, then a voice command undoes the scaffold](docs/demo.gif)
+
 An MCP server (and CLI) for Claude Code, Cursor and any MCP client. It gives the agent your project's rules, runs your stack's real compiler and tests after it writes, takes a checkpoint before every write, and turns each failure it fixes into a lesson — in **11 stacks**: Node.js, React, React Native, .NET, Laravel, Rust, Python, Go, Flutter, Ruby and Elixir.
 
 **Not a template demo.** On every push, CI has HexaCore scaffold two slices into a host project for each of the 11 stacks and requires the real toolchain (`dotnet`, `cargo`, `mix`, `go`, `flutter`, `pytest`, `phpunit`, `rspec`, `tsc` + `vitest`) to compile them and pass their tests.
