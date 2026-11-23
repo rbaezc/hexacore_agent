@@ -1,24 +1,26 @@
 # HexaCore Agent
 
-A governed engineering companion for AI coding agents, exposed as an **MCP server** (and a CLI), for the 11 stacks of the HexaGen suite: Node.js, React, React Native, .NET, Laravel, Rust, Python, Go, Flutter, Ruby and Elixir.
+**Your coding agent writes the code. HexaCore proves it compiles, passes its tests and can be undone.**
 
-Your AI client plans and writes code. HexaCore makes that work **compliant, verified, reversible and remembered**:
+[![npm](https://img.shields.io/npm/v/hexacore-agent)](https://www.npmjs.com/package/hexacore-agent)
+[![CI](https://github.com/rbaezc/hexacore_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/rbaezc/hexacore_agent/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-| Need | HexaCore gives the agent |
-|---|---|
-| Know the rules | Bilingual (EN/ES) rule search over bundled conventions, project rules and ADRs |
-| Start right | Vertical slices with ports, adapters, composition root and tests — adapted to the host project |
-| Know it works | The stack's own compiler, linter and test runner, with structured failures (file, line, test) |
-| Keep the design clean | A whole-repo architecture audit: slice coupling, layer direction, file size |
-| Fix safely | Sampling-based auto-fix that never edits tests and rolls back patches that make things worse |
-| Undo anything | A checkpoint for every write; exact, all-or-nothing rollback |
-| Continue tomorrow | Persisted plans, ADRs, QA history and handoff notes behind `resume_session` |
-| Get better with use | A learning loop: resolved failures become lessons, lessons are credited only when the actual fix matches them, proven ones become Claude Code skills and travel to your other projects |
-| Adapt to you | A user model across sessions: preferences you state, plus habits observed from how you actually work, at the top of every briefing |
-| Prototype UI | HTML prototypes with versions and a local live preview, a `ui` check (static rules, plus phone/desktop and light/dark rendering with screenshots), and promotion into the project |
-| Speak up | Watch mode re-runs checks on save and alerts (terminal, desktop, voice) only when one breaks or is fixed; voice commands with offline speech-to-text |
+An MCP server (and CLI) for Claude Code, Cursor and any MCP client. It gives the agent your project's rules, runs your stack's real compiler and tests after it writes, takes a checkpoint before every write, and turns each failure it fixes into a lesson — in **11 stacks**: Node.js, React, React Native, .NET, Laravel, Rust, Python, Go, Flutter, Ruby and Elixir.
 
-Generated code is not a template demo: CI scaffolds two slices into a minimal host project for **each of the 11 stacks** and requires the real toolchain (`dotnet`, `cargo`, `mix`, `go`, `flutter`, `pytest`, `phpunit`, `rspec`, `tsc` + `vitest`) to compile it and pass its tests.
+**Not a template demo.** On every push, CI has HexaCore scaffold two slices into a host project for each of the 11 stacks and requires the real toolchain (`dotnet`, `cargo`, `mix`, `go`, `flutter`, `pytest`, `phpunit`, `rspec`, `tsc` + `vitest`) to compile them and pass their tests.
+
+> **Opinionated:** HexaCore builds and audits [Vertical Slice Architecture](docs/rules/vertical_slice_rules.md) — one folder per feature, ports and adapters inside, no reaching across slices. If that's how you want your codebase to look, it keeps your agent on it.
+
+## What it does
+
+- **Verify** — runs the stack's own compiler, linter and test runner and hands the agent structured failures (file, line, test); audits the whole repo for slice coupling, layer direction and file size; optional auto-fix that never edits tests and rolls back patches that make things worse.
+- **Undo** — a checkpoint for every write; exact, all-or-nothing rollback.
+- **Remember** — plans, ADRs, QA history and handoff notes behind `resume_session`; your stated preferences and observed habits open every session.
+- **Learn** — a failure that goes green becomes a lesson, and a lesson earns credit only when the actual fix matches it. Proven lessons become Claude Code skills and travel to your other projects.
+- **Start right** — rule search (English and Spanish) over bundled conventions, your rules and ADRs; scaffolds vertical slices adapted to the host project.
+- **Prototype UI** — versioned HTML prototypes with live preview, a `ui` check rendered on phone/desktop in light/dark, then promotion into the project.
+- **Speak up** — watch mode re-runs checks on save and alerts (terminal, desktop, voice) only when something breaks or is fixed; offline voice commands ("is anything broken?", "undo the last change").
 
 ## Quick start
 
