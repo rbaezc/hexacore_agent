@@ -15,6 +15,9 @@ export interface Checkpoint {
   changes: FileChange[];
   /** The agent (role) whose action made the checkpoint, when known. */
   agent?: string;
+  /** When it was rolled back, and by which agent (when known). */
+  rolledBackAt?: string;
+  rolledBackBy?: string;
   /** Absolute directories this checkpoint created (absent in journals written before 3.5.1). */
   createdDirs?: string[];
 }

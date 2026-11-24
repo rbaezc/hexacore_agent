@@ -24,7 +24,7 @@ describe('agent roles', () => {
   it('render as Claude Code subagents with prefixed MCP tool names', () => {
     const fm = frontmatter(renderAgentFile(ROLES.qa, 'hexacore-agent'));
     expect(fm.name).toBe('hexacore-qa');
-    expect(fm.description).toMatch(/Use proactively/);
+    expect(JSON.parse(fm.description)).toBe(ROLES.qa.description);
     const tools = fm.tools.split(', ');
     expect(tools).toContain('mcp__hexacore-agent__run_quality_assurance');
     expect(tools).toContain('Edit');

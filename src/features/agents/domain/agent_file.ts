@@ -12,7 +12,8 @@ export function renderAgentFile(def: RoleDefinition, serverName: string): string
   return [
     '---',
     `name: ${def.name}`,
-    `description: ${def.description}`,
+    // Quoted: descriptions contain ': ', which a plain YAML scalar can't hold.
+    `description: ${JSON.stringify(def.description)}`,
     `tools: ${tools.join(', ')}`,
     '---',
     '',

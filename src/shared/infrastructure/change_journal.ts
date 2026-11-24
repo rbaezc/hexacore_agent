@@ -103,6 +103,9 @@ export class ChangeJournal {
 
     report.applied = true;
     checkpoint.status = 'rolled_back';
+    checkpoint.rolledBackAt = new Date().toISOString();
+    const by = currentAgent();
+    if (by) checkpoint.rolledBackBy = by;
     await this.persist(checkpoint);
     return ok(report);
   }
