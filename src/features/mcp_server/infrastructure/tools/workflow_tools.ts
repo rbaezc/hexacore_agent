@@ -110,23 +110,31 @@ export function workflowTools(s: HexaCoreServices): ToolDefinition[] {
     {
       name: 'record_handoff',
       title: 'Record a session handoff',
-      description: 'Saves where this session stopped and what comes next; resume_session shows it to the next session. Call before ending a work session.',
+      description:
+        'Saves where this session stopped and what comes next; resume_session shows it to the next session. Call before ending a work session. ' +
+        'Between agents, set `to` (e.g. "qa") to hand the work to that role: its resume_session lists the handoff first.',
       schema: () =>
         z.object({
           summary: z.string(),
           nextSteps: z.array(z.string()).optional(),
           openQuestions: z.array(z.string()).optional(),
+          to: z
+            .string()
+            .regex(/^[A-Za-z][A-Za-z0-9_-]{0,31}$/, 'a short agent name such as "dev", "qa" or "e2e"')
+            .optional()
+            .describe('The agent (role) this handoff is for, e.g. "qa"'),
         }),
-      handler: async (args: { summary: string; nextSteps?: string[]; openQuestions?: string[] }) => {
+      handler: async (args: { summary: string; nextSteps?: string[]; openQuestions?: string[]; to?: string }) => {
         const note = {
           id: `handoff_${Date.now()}`,
           summary: args.summary,
           nextSteps: args.nextSteps ?? [],
           openQuestions: args.openQuestions ?? [],
           createdAt: new Date().toISOString(),
+          ...(args.to ? { to: args.to } : {}),
         };
         const saved = await s.stateRepo.addHandoff(note);
-        return saved.isSuccess ? ok(note) : fail(saved.error);
+        return saved.isSuccess ? ok(saved.value.handoffs.find((h) => h.id === note.id) ?? note) : fail(saved.error);
       },
     },
   ];

@@ -8,6 +8,7 @@ import { QACheck, QAResult } from '../../../quality_assurance/index.js';
 import { LearningSummary, ObservationReport } from '../../../learning/index.js';
 import { UserProfile } from '../../../user_profile/index.js';
 import { ToolDefinition } from '../../domain/mcp_types.js';
+import { currentAgent } from '../../../../shared/infrastructure/agent_context.js';
 
 export const stackEnum = (stacks: readonly SupportedStack[]) => z.enum(stacks as [SupportedStack, ...SupportedStack[]]);
 const checkEnum = z.enum(['test', 'typecheck', 'lint', 'build', 'ui']);
@@ -20,7 +21,7 @@ export function coreTools(s: HexaCoreServices): ToolDefinition[] {
       name: 'resume_session',
       title: 'Resume session',
       description:
-        'Call first in every session. Returns a briefing of where work stopped (unfinished plans, last QA results, recent decisions, last handoff, checkpoints) plus the workspace root and detected stacks.',
+        'Call first in every session (an agent passes agent, e.g. "qa", to see the handoffs addressed to it first). Returns a briefing of where work stopped (unfinished plans, last QA results, recent decisions, last handoff, checkpoints) plus the workspace root and detected stacks.',
       schema: () => z.object({}),
       annotations: { readOnlyHint: true },
       handler: async () => {
@@ -30,8 +31,8 @@ export function coreTools(s: HexaCoreServices): ToolDefinition[] {
           st.metadata.activeStacks = stacks;
         });
         if (state.isFailure) return fail(state.error);
-        const checkpoints = (await s.journal.list(5)).map(({ id, label, createdAt, status }) => ({ id, label, createdAt, status }));
-        const briefing = buildBriefing(state.value, checkpoints);
+        const checkpoints = (await s.journal.list(5)).map(({ id, label, createdAt, status, agent }) => ({ id, label, createdAt, status, ...(agent ? { agent } : {}) }));
+        const briefing = buildBriefing(state.value, checkpoints, currentAgent());
         const learning = await s.learning.summary(stacks);
         const profile = await s.profile.profile();
         const extra = `${profile.isSuccess ? profileLines(profile.value) : ''}${learning.isSuccess ? learningLines(learning.value) : ''}`;

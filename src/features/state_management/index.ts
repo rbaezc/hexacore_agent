@@ -3,3 +3,4 @@ export * from './domain/state_types.js';
 export * from './domain/state_validator.js';
 export * from './services/session_briefing.js';
 export * from './services/state_repository.js';
+export * from './domain/activity.js';

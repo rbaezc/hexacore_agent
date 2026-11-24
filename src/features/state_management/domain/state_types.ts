@@ -75,6 +75,10 @@ export interface HandoffNote {
   nextSteps: string[];
   openQuestions: string[];
   createdAt: string;
+  /** The agent (role) that wrote it, when known. */
+  from?: string;
+  /** The agent (role) it is addressed to; that agent's resume_session shows it first. */
+  to?: string;
 }
 
 export interface QaRunSummary {
@@ -86,6 +90,8 @@ export interface QaRunSummary {
   at: string;
   /** 'watch' = run by `hexacore watch` on its own, not asked for in a session. */
   source?: 'watch';
+  /** The agent (role) that ran it, when known. */
+  agent?: string;
 }
 
 export interface StateManifest {

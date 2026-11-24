@@ -17,6 +17,9 @@ class MockDocsFileSystem implements IFileSystem {
   async removeEmptyDir(): Promise<boolean> {
     return false;
   }
+  async lock(): Promise<() => Promise<void>> {
+    return async () => {};
+  }
 
   async listDirectory(): Promise<string[]> {
     return ['/docs/rules.md'];

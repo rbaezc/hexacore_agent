@@ -4,6 +4,7 @@ import { WorkspaceContext } from '../../../shared/infrastructure/workspace.js';
 import { Result, ok, fail } from '../../../shared/domain/result.js';
 import { StateManifest, LedgerStep, CaseFact, ExecutionPlan, DecisionRecord, HandoffNote, QaRunSummary } from '../domain/state_types.js';
 import { StateValidator } from '../domain/state_validator.js';
+import { currentAgent } from '../../../shared/infrastructure/agent_context.js';
 
 const MAX_QA_HISTORY = 50;
 const MAX_HANDOFFS = 20;
@@ -62,16 +63,26 @@ export class StateRepository {
     }
   }
 
-  /** Atomic read-modify-write under the in-process lock. */
+  /** Atomic read-modify-write, serialised in this process and locked against other HexaCore processes. */
   async update(mutate: (state: StateManifest) => void): Promise<Result<StateManifest, Error>> {
     return this.withLock(async () => {
-      const loadResult = await this.loadState();
-      if (loadResult.isFailure) return loadResult;
-      const state = loadResult.value;
-      mutate(state);
-      const saveResult = await this.saveState(state);
-      if (saveResult.isFailure) return fail(saveResult.error);
-      return ok(state);
+      let release: () => Promise<void>;
+      try {
+        release = await this.fileSystem.lock(this.manifestPath);
+      } catch (error: any) {
+        return fail(new Error(`Failed to lock state manifest: ${error.message}`));
+      }
+      try {
+        const loadResult = await this.loadState();
+        if (loadResult.isFailure) return loadResult;
+        const state = loadResult.value;
+        mutate(state);
+        const saveResult = await this.saveState(state);
+        if (saveResult.isFailure) return fail(saveResult.error);
+        return ok(state);
+      } finally {
+        await release();
+      }
     });
   }
 
@@ -100,15 +111,17 @@ export class StateRepository {
   }
 
   async addHandoff(note: HandoffNote): Promise<Result<StateManifest, Error>> {
+    const from = note.from ?? currentAgent();
     return this.update((state) => {
-      state.handoffs.push(note);
+      state.handoffs.push(from ? { ...note, from } : note);
       state.handoffs = state.handoffs.slice(-MAX_HANDOFFS);
     });
   }
 
   async recordQaRun(summary: QaRunSummary): Promise<Result<StateManifest, Error>> {
+    const agent = summary.agent ?? currentAgent();
     return this.update((state) => {
-      state.qaHistory.push(summary);
+      state.qaHistory.push(agent ? { ...summary, agent } : summary);
       state.qaHistory = state.qaHistory.slice(-MAX_QA_HISTORY);
     });
   }

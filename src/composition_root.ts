@@ -34,6 +34,7 @@ import { UiAuditor } from './features/prototyping/services/ui_auditor.js';
 import { PrototypePromoter } from './features/prototyping/services/prototype_promoter.js';
 import { BrowserDriver, PlaywrightDriver, loadPlaywright } from './features/prototyping/services/playwright_driver.js';
 import { UiAuditReport, UiFinding } from './features/prototyping/domain/prototype_types.js';
+import { AgentExporter } from './features/agents/index.js';
 import { ok, fail } from './shared/domain/result.js';
 
 export interface HexaCoreServices {
@@ -54,6 +55,7 @@ export interface HexaCoreServices {
   lessons: LessonAuthoring;
   profile: ProfileService;
   prototypes: { store: PrototypeStore; preview: PreviewServer; auditor: UiAuditor; promoter: PrototypePromoter };
+  agents: AgentExporter;
   /** Set by the MCP server once the client proves it supports sampling. */
   llm: { client?: LlmClient };
 }
@@ -189,6 +191,7 @@ export function createHexaCore(options: HexaCoreOptions = {}): HexaCoreServices 
       project: () => workspace.hexagenPath('profile.json'),
     }),
     prototypes: { store: prototypeStore, preview, auditor: uiAuditor, promoter: new PrototypePromoter(fileSystem, workspace, journal, prototypeStore) },
+    agents: new AgentExporter(fileSystem, workspace, journal),
     llm,
   };
 }

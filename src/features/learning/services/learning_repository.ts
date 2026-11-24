@@ -35,16 +35,24 @@ export class LearningRepository {
   /** Read-modify-write under an in-process lock; the mutator's return value is passed through. */
   async update<T>(mutate: (store: LearningStore) => T): Promise<Result<T, Error>> {
     const run = this.writeQueue.then(async (): Promise<Result<T, Error>> => {
-      const loaded = await this.load();
-      if (loaded.isFailure) return fail(loaded.error);
-      const store = loaded.value;
-      const value = mutate(store);
-      store.episodes = store.episodes.slice(-MAX_EPISODES);
+      let release: () => Promise<void>;
       try {
+        release = await this.fileSystem.lock(this.storePath());
+      } catch (error: any) {
+        return fail(new Error(`Failed to lock ${this.storePath()}: ${error.message}`));
+      }
+      try {
+        const loaded = await this.load();
+        if (loaded.isFailure) return fail(loaded.error);
+        const store = loaded.value;
+        const value = mutate(store);
+        store.episodes = store.episodes.slice(-MAX_EPISODES);
         await this.fileSystem.writeFileAtomic(this.storePath(), JSON.stringify(store, null, 2));
         return ok(value);
       } catch (error: any) {
         return fail(new Error(`Failed to save ${this.storePath()}: ${error.message}`));
+      } finally {
+        await release();
       }
     });
     this.writeQueue = run.catch(() => undefined);

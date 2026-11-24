@@ -5,6 +5,7 @@ import { createHexaCore } from '../composition_root.js';
 import { createToolRegistry } from '../features/mcp_server/infrastructure/mcp_server_factory.js';
 import { getPackageVersion } from '../shared/infrastructure/package_info.js';
 import { runWatch } from './watch_command.js';
+import { runActivity } from './activity_command.js';
 import { runListen, runVoiceSetup } from './voice_command.js';
 import { openInBrowser } from './open_browser.js';
 
@@ -41,6 +42,8 @@ const USAGE = `Usage: hexacore <command> [args] [--workspace <dir>]
   lessons [query…] [--stack s]            Review learned lessons (or search them)
   export-skills [lessonId,…]              Export proven lessons as Claude Code skills
   share-lessons [lessonId,…]              Share proven lessons with your other projects (~/.hexacore)
+  agents export [dev,qa,e2e]              Write the dev/qa/e2e roles as Claude Code subagents (--server, --overwrite)
+  activity [--once] [--last 20]           Live feed of what each agent did: writes, rollbacks, QA runs, handoffs
   prototype <name> <file.html> [--note n] [--target t]   Save a file as a new prototype version
   prototypes                              List prototypes and their preview URLs
   promote <name> <target> [--version n] [--overwrite]    Copy a prototype into the project
@@ -108,6 +111,9 @@ function toToolCall(command: string, args: string[], flags: Record<string, strin
       return { tool: 'export_skills', input: { lessonIds: list(args[0]) } };
     case 'share-lessons':
       return { tool: 'share_lessons', input: { lessonIds: list(args[0]) } };
+    case 'agents':
+      if (args[0] !== 'export') throw new Error('Usage: agents export [dev,qa,e2e] [--server <name>] [--overwrite]');
+      return { tool: 'export_agents', input: { roles: list(args[1]), serverName: str(flags.server), overwrite: flags.overwrite === true || undefined } };
     default:
       return undefined;
   }
@@ -122,6 +128,7 @@ export async function runHexaCoreCLI(argv: string[]): Promise<number> {
   const workspaceRoot = typeof flags.workspace === 'string' ? flags.workspace : undefined;
   if (command === 'preview') return servePreviews(workspaceRoot, flags);
   if (command === 'watch') return runWatch(workspaceRoot, flags);
+  if (command === 'activity') return runActivity(workspaceRoot, flags);
   if (command === 'listen') return runListen(workspaceRoot, flags);
   if (command === 'voice' && positional[0] === 'setup') return runVoiceSetup(flags);
   let call: ReturnType<typeof toToolCall>;

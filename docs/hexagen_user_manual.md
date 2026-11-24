@@ -109,7 +109,7 @@ From source, use `node <path-to-hexacore_agent>/dist/cli/mcp_launcher.js` as the
 
 | Tool | Purpose |
 | :--- | :--- |
-| `resume_session` | Briefing: unfinished plans, last QA per check, recent ADRs, last handoff, recent checkpoints, detected stacks. Call first. |
+| `resume_session` | Briefing: unfinished plans, last QA per check, recent ADRs, last handoff, recent checkpoints, detected stacks. Call first. With `agent`, the handoffs addressed to that agent come first (`handoffsForYou`). |
 | `search_knowledge_base(query, topK?)` | Rule retrieval across bundled rules, project rules and ADRs (English/Spanish). |
 | `execute_scaffolding(stack, sliceName, layer?, targetDir?, dryRun?, overwrite?, includeTests?)` | Generate a slice. Refuses to overwrite unless `overwrite: true`; `dryRun` returns planned files with content. |
 | `run_quality_assurance(stack, checks?, scope?, cwd?, target?)` | `test`, `typecheck`, `lint`, `build`, `ui`. Structured results; missing tools are `skipped` (never `passed`). Streams progress. `ui` audits `target` (a prototype, an `.html` file or a `http://localhost` URL) and attaches screenshots when Playwright is installed. |
@@ -120,7 +120,7 @@ From source, use `node <path-to-hexacore_agent>/dist/cli/mcp_launcher.js` as the
 | `rollback_changes(checkpointId, force?)` | Undo a checkpoint; refuses if files changed afterwards unless `force`. |
 | `record_decision(title, context, decision, consequences, alternatives?, status?, tags?)` | Write an ADR to `docs/adr/` and index it. |
 | `define_contract(sliceName, operations[], …)` | Write `contracts/<slice>.openapi.yaml` (OpenAPI 3.1). |
-| `record_handoff(summary, nextSteps?, openQuestions?)` | Leave context for the next session. |
+| `record_handoff(summary, nextSteps?, openQuestions?, to?)` | Leave context for the next session; `to` (e.g. `"qa"`) hands it to that agent role. |
 | `record_lesson(title, problem, solution, example?, stack?, tags?, episodeId?, updateId?)` | Save a lesson to `.hexagen/skills/`; `updateId` rewrites one and keeps its history. Returns near-duplicates. |
 | `rate_lesson(lessonId, helpful?, retire?)` | Explicit feedback on a suggested lesson, or retire it. |
 | `review_lessons(query?, stack?)` | Failures without a lesson, lessons needing review, near-duplicates, stale lessons, exportable and shareable lessons, best lessons, the library; `query` searches lessons. |
@@ -131,7 +131,10 @@ From source, use `node <path-to-hexacore_agent>/dist/cli/mcp_launcher.js` as the
 | `forget_preference(id? \| observed? \| all?)` | Forget one preference, the observed habits, or everything. |
 | `create_prototype(name, html? \| edits?, files?, basedOn?, target?, note?)` | Save a new version of an HTML prototype in `.hexagen/prototypes/<name>/` (a checkpoint). Returns the local preview URL and the static UI findings. |
 | `list_prototypes()` | Prototypes, their versions, intended targets, promotions and preview URLs. |
+| `export_agents(roles?, serverName?, overwrite?)` | Write the dev, qa and e2e roles as Claude Code subagents in `.claude/agents/hexacore-<role>.md` (a checkpoint). Hand-edited files are kept unless `overwrite`. |
 | `promote_prototype(name, target, version?, overwrite?)` | Copy a version to an `.html` target through a checkpoint and audit it there; for any other target, return the design tokens, the markup and the steps to port it. |
+
+Every tool also accepts `agent` (e.g. `"qa"`): checkpoints, rollbacks, QA runs and handoffs made by the call are attributed to it. `HEXACORE_AGENT` is the default for a whole process.
 
 **Prompts** (slash commands in most clients): `design_feature`, `implement_slice`, `fix_failing_checks`, `prototype_ui`.
 **Resources**: every rule document (`hexacore://knowledge/...`) and the session briefing (`hexacore://session/briefing`).
@@ -164,9 +167,11 @@ npm start -- promote landing docs/index.html --overwrite --workspace ../my_app
 npm start -- watch --checks typecheck,test --notify console,voice --lang es --workspace ../my_app
 npm start -- voice setup --model small
 npm start -- listen --lang es --workspace ../my_app   # Enter to talk, Enter to stop; or type a command
+npm start -- agents export qa,e2e --server hexacore --workspace ../my_app
+npm start -- activity --last 50 --workspace ../my_app # follows until Ctrl+C; --once prints and exits
 ```
 
-`watch` and `listen` run in the foreground until Ctrl+C (or "salir" / "exit") and write to stderr only.
+`watch`, `listen` and `activity` run in the foreground until Ctrl+C (or "salir" / "exit") and write to stderr only.
 
 Installed from npm (or after `npm run build`), the same commands are available as `hexacore <command>`.
 
