@@ -46,6 +46,50 @@ describe('ChangeJournal', () => {
     expect(await fs.readFile(file('a.txt'))).toBe('original A');
   });
 
+  it('removes the directories it created once they are empty, and only those', async () => {
+    const { fs, journal } = setup();
+    await fs.writeFile(file('src/main.ts'), 'existing');
+    const cp = await journal.begin('scaffold');
+    await journal.write(cp, file('src/features/refunds/domain/entity.ts'), 'e');
+    await journal.write(cp, file('src/features/refunds/tests/entity.test.ts'), 't');
+
+    const res = await journal.rollback(cp.id);
+    expect(res.isSuccess && res.value.applied).toBe(true);
+    if (res.isSuccess) {
+      expect(res.value.removedDirs).toEqual(['src/features/refunds/domain', 'src/features/refunds/tests', 'src/features/refunds', 'src/features']);
+    }
+    expect(await fs.exists(file('src/features'))).toBe(false);
+    expect(await fs.exists(file('src'))).toBe(true);
+    expect(await fs.readFile(file('src/main.ts'))).toBe('existing');
+  });
+
+  it('keeps a created directory that holds something it did not write', async () => {
+    const { fs, journal } = setup();
+    const cp = await journal.begin('scaffold');
+    await journal.write(cp, file('src/features/refunds/index.ts'), 'i');
+    await fs.writeFile(file('src/features/refunds/notes.md'), 'developer notes');
+
+    const res = await journal.rollback(cp.id);
+    expect(res.isSuccess && res.value.applied).toBe(true);
+    if (res.isSuccess) expect(res.value.removedDirs).toEqual([]);
+    expect(await fs.exists(file('src/features/refunds/index.ts'))).toBe(false);
+    expect(await fs.readFile(file('src/features/refunds/notes.md'))).toBe('developer notes');
+  });
+
+  it('rolls back journals written before directories were recorded', async () => {
+    const { fs, journal } = setup();
+    const cp = await journal.begin('old');
+    await journal.write(cp, file('lib/x.ts'), 'x');
+    const stored = JSON.parse(await fs.readFile(file(`.hexagen/checkpoints/${cp.id}.json`)));
+    delete stored.createdDirs;
+    await fs.writeFile(file(`.hexagen/checkpoints/${cp.id}.json`), JSON.stringify(stored));
+
+    const res = await journal.rollback(cp.id);
+    expect(res.isSuccess && res.value.applied).toBe(true);
+    if (res.isSuccess) expect(res.value.removedDirs).toEqual([]);
+    expect(await fs.exists(file('lib/x.ts'))).toBe(false);
+  });
+
   it('never writes outside the workspace', async () => {
     const { journal } = setup();
     const cp = await journal.begin('test');

@@ -26,6 +26,9 @@ class SlowMockFs implements IFileSystem {
   }
 
   async ensureDir() {}
+  async removeEmptyDir(): Promise<boolean> {
+    return false;
+  }
   async listDirectory() {
     return [];
   }
