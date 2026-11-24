@@ -1,6 +1,6 @@
 # 2. HexaCore 3.6: agent roles (dev, qa, e2e), on demand or on their own
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-11-24
 - **Tags:** v3.6, agents, roles, multi-agent, handoff, concurrency
 

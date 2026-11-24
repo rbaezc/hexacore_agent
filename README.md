@@ -22,6 +22,7 @@ An MCP server (and CLI) for Claude Code, Cursor and any MCP client. It gives the
 - **Learn** — a failure that goes green becomes a lesson, and a lesson earns credit only when the actual fix matches it. Proven lessons become Claude Code skills and travel to your other projects.
 - **Start right** — rule search (English and Spanish) over bundled conventions, your rules and ADRs; scaffolds vertical slices adapted to the host project.
 - **Prototype UI** — versioned HTML prototypes with live preview, a `ui` check rendered on phone/desktop in light/dark, then promotion into the project.
+- **Work as a team** — dev, qa and e2e agent roles as Claude Code subagents: start one when you want, or let Claude call it when a task matches; they hand work to each other and `hexacore activity` shows who did what.
 - **Speak up** — watch mode re-runs checks on save and alerts (terminal, desktop, voice) only when something breaks or is fixed; offline voice commands ("is anything broken?", "undo the last change").
 
 ## Quick start
@@ -104,6 +105,19 @@ hexacore listen --lang es       # Enter to talk, Enter to stop (or type the comm
 - **Voice**: `hexacore listen` records with ffmpeg and transcribes with [whisper.cpp](https://github.com/ggml-org/whisper.cpp) on your machine; audio never leaves it. It understands, in Spanish or English: where we left off, run the tests / typecheck / lint / build, is anything broken, list or open prototypes, list checkpoints, undo the last change, help, exit. Undoing is described first and runs only after a spoken "yes"; a rollback that would overwrite later edits is reported, never forced. `--mute` answers in text only.
 - **Setup**: ffmpeg on `PATH` (`HEXACORE_FFMPEG`), whisper.cpp's `whisper-cli` in `~/.hexacore/whisper/` or on `PATH` (`HEXACORE_WHISPER`), and a model (`voice setup --model tiny|base|small|medium`, default `base`, ~148 MB; `HEXACORE_WHISPER_MODEL`). `HEXACORE_MIC` picks the microphone.
 
+## Agent roles
+
+```bash
+hexacore agents export          # .claude/agents/hexacore-dev.md, hexacore-qa.md, hexacore-e2e.md
+hexacore activity               # live feed for a side pane: who wrote, checked, rolled back or handed off what
+```
+
+- **Roles**: `hexacore-dev` designs, scaffolds and implements; `hexacore-qa` runs the real checks, fixes failures (never by weakening tests) and records lessons; `hexacore-e2e` checks the running app and the UI and reports what breaks. Each gets only the tools of its role: qa can't scaffold, e2e can't edit source.
+- **On demand or on their own**: ask for one ("use hexacore-qa to …") or run it in its own terminal pane (Herdr, tmux…); Claude Code also delegates to a role by itself when a task matches its description. `--server` sets the name HexaCore is registered under (default `hexacore-agent`); files you edited by hand are kept unless `--overwrite`.
+- **Who did what**: every tool takes an optional `agent`, and `HEXACORE_AGENT` sets it for a whole process (one pane per agent). Checkpoints, rollbacks, QA runs and handoffs record it.
+- **Handoffs**: `record_handoff` with `to: "qa"` hands the work over; the qa agent's `resume_session` lists the handoffs addressed to it first.
+- **Several agents, one project**: state, lessons and profile writes are locked across processes, so agents and `hexacore watch` can run side by side without losing updates.
+
 ## Learning loop
 
 HexaCore learns from what actually happens in your project, and checks its lessons against the stack's real test results instead of the model's opinion of itself:
@@ -118,7 +132,7 @@ HexaCore learns from what actually happens in your project, and checks its lesso
 
 ## Tools
 
-`resume_session` · `search_knowledge_base` · `execute_scaffolding` · `run_quality_assurance` · `check_architecture` · `orchestrate_task` · `resume_plan` · `list_checkpoints` · `rollback_changes` · `record_decision` · `define_contract` · `record_handoff` · `record_lesson` · `rate_lesson` · `review_lessons` · `export_skills` · `share_lessons` · `merge_lessons` · `remember_preference` · `forget_preference` · `create_prototype` · `list_prototypes` · `promote_prototype`
+`resume_session` · `search_knowledge_base` · `execute_scaffolding` · `run_quality_assurance` · `check_architecture` · `orchestrate_task` · `resume_plan` · `list_checkpoints` · `rollback_changes` · `record_decision` · `define_contract` · `record_handoff` · `record_lesson` · `rate_lesson` · `review_lessons` · `export_skills` · `share_lessons` · `merge_lessons` · `remember_preference` · `forget_preference` · `create_prototype` · `list_prototypes` · `promote_prototype` · `export_agents`
 
 Prompts: `design_feature`, `implement_slice`, `fix_failing_checks`, `prototype_ui`. Resources: every rule document and the session briefing.
 
@@ -137,6 +151,8 @@ npm start -- preview --open --workspace ../shop
 npm start -- promote landing docs/index.html --workspace ../shop
 npm start -- watch --lang es --workspace ../shop
 npm start -- listen --lang es --workspace ../shop
+npm start -- agents export --workspace ../shop
+npm start -- activity --workspace ../shop
 ```
 
 JSON on stdout; exit code `2` when checks aren't green.
@@ -162,6 +178,8 @@ npx tsx src/cli/hexacore_cli.ts arch src --strict   # self-audit, warnings fail 
 - `.hexagen/rules/*.md` — your own rules; they rank above the bundled ones.
 - `.hexagen/skills/*.md` and `.hexagen/learning.json` — learned lessons and their track record (commit them to share what the project has learned).
 - `.claude/skills/hexacore-*/` — lessons exported as Claude Code skills, when you ask for them.
+- `.claude/agents/hexacore-*.md` — the dev, qa and e2e roles as Claude Code subagents, when you export them (commit them to share the roles).
+- `.hexagen/*.lock` — short-lived locks while a state file is being written; a leftover one from a crashed process is taken over automatically.
 - `hexacore.json` — optional project config, e.g. `{ "architecture": { "compositionSlices": ["orchestrator"] } }`: slices that exist to coordinate others (orchestrators, API or tool layers) may use their public modules without warnings; reaching their internals is still an error.
 - `.hexagen/profile.json` and `~/.hexacore/profile.json` — preferences for this project and for you, and your observed habits.
 - `~/.hexacore/lessons/` and `~/.hexacore/learning.json` — your lesson library, shared across projects, when you share lessons (outside the project).

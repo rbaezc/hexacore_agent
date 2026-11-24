@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Agent roles** (new `agents` slice): `export_agents` and `hexacore agents export [roles]` write `hexacore-dev`, `hexacore-qa` and `hexacore-e2e` as Claude Code subagents (`.claude/agents/`, through a checkpoint). Each role has a description Claude Code delegates on, only the tools of its role, and a handoff protocol. Hand-edited files are kept unless `overwrite`; `--server` sets the MCP server name used in tool names.
+- **Attribution**: every tool accepts an optional `agent`; `HEXACORE_AGENT` sets it for a whole process. Checkpoints (and rollbacks, now with time and agent), QA runs and handoffs record it.
+- **Role handoffs**: `record_handoff` takes `to`; `resume_session` called by an agent lists the handoffs addressed to it since its own last handoff (`handoffsForYou`).
+- **`hexacore activity`**: a live feed of writes, rollbacks, QA runs and handoffs with the agent of each (`--once`, `--last`, `--interval`).
+
+### Fixed
+
+- State, lesson and profile writes are now locked across processes (`<file>.lock`, taken over from dead or hung holders). Several agents, or an agent and `hexacore watch`, writing at once could lose updates: a probe with two writers kept 20 of 40, and on Windows some writes failed outright.
+
 ## [3.5.1] - 2026-11-23
 
 ### Fixed
