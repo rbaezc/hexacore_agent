@@ -27,14 +27,22 @@ export class JsonFileStore<T> {
   /** The mutator's return value is passed through. */
   async update<R>(mutate: (doc: T) => R): Promise<Result<R, Error>> {
     const run = this.writeQueue.then(async (): Promise<Result<R, Error>> => {
-      const loaded = await this.load();
-      if (loaded.isFailure) return fail(loaded.error);
-      const value = mutate(loaded.value);
+      let release: () => Promise<void>;
       try {
+        release = await this.fileSystem.lock(this.filePath());
+      } catch (error: any) {
+        return fail(new Error(`Failed to lock ${this.filePath()}: ${error.message}`));
+      }
+      try {
+        const loaded = await this.load();
+        if (loaded.isFailure) return fail(loaded.error);
+        const value = mutate(loaded.value);
         await this.fileSystem.writeFileAtomic(this.filePath(), JSON.stringify(loaded.value, null, 2));
         return ok(value);
       } catch (error: any) {
         return fail(new Error(`Failed to save ${this.filePath()}: ${error.message}`));
+      } finally {
+        await release();
       }
     });
     this.writeQueue = run.catch(() => undefined);

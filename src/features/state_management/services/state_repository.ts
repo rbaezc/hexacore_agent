@@ -62,16 +62,26 @@ export class StateRepository {
     }
   }
 
-  /** Atomic read-modify-write under the in-process lock. */
+  /** Atomic read-modify-write, serialised in this process and locked against other HexaCore processes. */
   async update(mutate: (state: StateManifest) => void): Promise<Result<StateManifest, Error>> {
     return this.withLock(async () => {
-      const loadResult = await this.loadState();
-      if (loadResult.isFailure) return loadResult;
-      const state = loadResult.value;
-      mutate(state);
-      const saveResult = await this.saveState(state);
-      if (saveResult.isFailure) return fail(saveResult.error);
-      return ok(state);
+      let release: () => Promise<void>;
+      try {
+        release = await this.fileSystem.lock(this.manifestPath);
+      } catch (error: any) {
+        return fail(new Error(`Failed to lock state manifest: ${error.message}`));
+      }
+      try {
+        const loadResult = await this.loadState();
+        if (loadResult.isFailure) return loadResult;
+        const state = loadResult.value;
+        mutate(state);
+        const saveResult = await this.saveState(state);
+        if (saveResult.isFailure) return fail(saveResult.error);
+        return ok(state);
+      } finally {
+        await release();
+      }
     });
   }
 

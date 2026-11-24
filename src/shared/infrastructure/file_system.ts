@@ -1,5 +1,6 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { acquireFileLock } from './file_lock.js';
 
 export interface IFileSystem {
   readFile(filePath: string): Promise<string>;
@@ -11,6 +12,11 @@ export interface IFileSystem {
   remove(targetPath: string): Promise<void>;
   /** Removes a directory only if it is empty; returns whether it was removed. */
   removeEmptyDir(dirPath: string): Promise<boolean>;
+  /**
+   * Takes an exclusive lock on `filePath` across processes (several agents and `hexacore watch`
+   * can share a workspace) and resolves to its release function.
+   */
+  lock(filePath: string): Promise<() => Promise<void>>;
   exists(filePath: string): Promise<boolean>;
   ensureDir(dirPath: string): Promise<void>;
   /**
@@ -64,6 +70,10 @@ export class NodeFileSystem implements IFileSystem {
     } catch {
       return false;
     }
+  }
+
+  async lock(filePath: string): Promise<() => Promise<void>> {
+    return acquireFileLock(filePath);
   }
 
   async exists(filePath: string): Promise<boolean> {

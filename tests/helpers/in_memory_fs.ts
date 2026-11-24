@@ -54,6 +54,10 @@ export class InMemoryFileSystem implements IFileSystem {
     return this.files.has(k) || this.dirs.has(k) || this.under(k);
   }
   async ensureDir(): Promise<void> {}
+  /** One process, so the in-process queues of the stores are enough. */
+  async lock(): Promise<() => Promise<void>> {
+    return async () => {};
+  }
   async listDirectory(dir: string, ignoreDirs?: ReadonlySet<string>, maxDepth: number = Infinity): Promise<string[]> {
     const root = this.key(dir) + path.sep;
     return [...this.files.keys()].filter((f) => {
