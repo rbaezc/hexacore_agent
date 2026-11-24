@@ -1,6 +1,6 @@
 {
   "name": "hexacore-agent",
-  "version": "3.5.0",
+  "version": "3.5.1",
   "description": "Verified, reversible, self-improving Vertical Slice Architecture companion for AI coding agents: an MCP server + CLI for 11 stacks",
   "mcpName": "io.github.rbaezc/hexacore-agent",
   "keywords": [
