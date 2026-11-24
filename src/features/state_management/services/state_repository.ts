@@ -4,6 +4,7 @@ import { WorkspaceContext } from '../../../shared/infrastructure/workspace.js';
 import { Result, ok, fail } from '../../../shared/domain/result.js';
 import { StateManifest, LedgerStep, CaseFact, ExecutionPlan, DecisionRecord, HandoffNote, QaRunSummary } from '../domain/state_types.js';
 import { StateValidator } from '../domain/state_validator.js';
+import { currentAgent } from '../../../shared/infrastructure/agent_context.js';
 
 const MAX_QA_HISTORY = 50;
 const MAX_HANDOFFS = 20;
@@ -110,15 +111,17 @@ export class StateRepository {
   }
 
   async addHandoff(note: HandoffNote): Promise<Result<StateManifest, Error>> {
+    const from = note.from ?? currentAgent();
     return this.update((state) => {
-      state.handoffs.push(note);
+      state.handoffs.push(from ? { ...note, from } : note);
       state.handoffs = state.handoffs.slice(-MAX_HANDOFFS);
     });
   }
 
   async recordQaRun(summary: QaRunSummary): Promise<Result<StateManifest, Error>> {
+    const agent = summary.agent ?? currentAgent();
     return this.update((state) => {
-      state.qaHistory.push(summary);
+      state.qaHistory.push(agent ? { ...summary, agent } : summary);
       state.qaHistory = state.qaHistory.slice(-MAX_QA_HISTORY);
     });
   }

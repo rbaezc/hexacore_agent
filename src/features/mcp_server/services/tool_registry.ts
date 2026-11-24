@@ -2,6 +2,12 @@ import { z } from 'zod';
 import { Result, fail } from '../../../shared/domain/result.js';
 import { ListedTool, ToolContext, ToolDefinition } from '../domain/mcp_types.js';
 import { SUPPORTED_STACKS, SupportedStack } from '../../../shared/domain/stack.js';
+import { isValidAgentName, runAsAgent } from '../../../shared/infrastructure/agent_context.js';
+
+const AGENT_PROPERTY = {
+  type: 'string',
+  description: 'The agent role making this call (e.g. "dev", "qa", "e2e"), so its work is attributed to it. Defaults to HEXACORE_AGENT.',
+};
 
 /** Notified after every validated call (e.g. to learn the user's habits); must not throw. */
 export type ToolCallObserver = (event: { tool: string; args: Record<string, unknown>; ok: boolean }) => Promise<void>;
@@ -20,11 +26,12 @@ export class ToolRegistry {
     const offered = stacks.length > 0 ? stacks : SUPPORTED_STACKS;
     return [...this.tools.values()].map((tool) => {
       const { $schema: _ignored, ...jsonSchema } = z.toJSONSchema(tool.schema(offered), { io: 'input' }) as Record<string, unknown>;
+      const properties = { ...((jsonSchema.properties as Record<string, unknown>) ?? {}), agent: AGENT_PROPERTY };
       return {
         name: tool.name,
         title: tool.title,
         description: tool.description,
-        inputSchema: { ...jsonSchema, type: 'object' },
+        inputSchema: { ...jsonSchema, type: 'object', properties },
         annotations: tool.annotations,
       };
     });
@@ -39,14 +46,19 @@ export class ToolRegistry {
     const tool = this.tools.get(name);
     if (!tool) return fail(new Error(`Unknown tool '${name}'. Available: ${[...this.tools.keys()].join(', ')}.`));
 
-    const parsed = tool.schema(SUPPORTED_STACKS).safeParse(rawArgs ?? {});
+    // `agent` belongs to every tool: it attributes the call, then the tool's own schema sees the rest.
+    const { agent, ...args } = (rawArgs ?? {}) as Record<string, unknown>;
+    if (agent !== undefined && (typeof agent !== 'string' || !isValidAgentName(agent))) {
+      return fail(new Error(`Invalid arguments for '${name}': agent: use a short name such as "dev", "qa" or "e2e".`));
+    }
+    const parsed = tool.schema(SUPPORTED_STACKS).safeParse(args);
     if (!parsed.success) {
       const issues = parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ');
       return fail(new Error(`Invalid arguments for '${name}': ${issues}`));
     }
     let result: Result<unknown, Error>;
     try {
-      result = await tool.handler(parsed.data, ctx);
+      result = await runAsAgent(agent as string | undefined, () => tool.handler(parsed.data, ctx));
     } catch (error: any) {
       result = fail(new Error(`Tool '${name}' crashed: ${error?.message ?? String(error)}`));
     }

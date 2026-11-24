@@ -7,6 +7,8 @@ export interface SessionBriefing {
   briefing: string;
   pendingPlans: { id: string; description: string; status: string; nextStep?: string }[];
   latestHandoff?: StateManifest['handoffs'][number];
+  /** For an agent: handoffs addressed to it since its own last handoff, oldest first. */
+  handoffsForYou?: StateManifest['handoffs'];
   recentDecisions: StateManifest['decisions'];
   lastQa: StateManifest['qaHistory'];
   recentCheckpoints: { id: string; label: string; createdAt: string; status: string }[];
@@ -15,7 +17,8 @@ export interface SessionBriefing {
 /** Condenses the manifest into what a fresh session needs to continue, instead of dumping raw JSON. */
 export function buildBriefing(
   state: StateManifest,
-  checkpoints: { id: string; label: string; createdAt: string; status: string }[]
+  checkpoints: { id: string; label: string; createdAt: string; status: string }[],
+  agent?: string
 ): SessionBriefing {
   const pendingPlans = state.plans
     .filter((p) => p.status !== 'completed')
@@ -36,7 +39,13 @@ export function buildBriefing(
   const recentDecisions = state.decisions.slice(-5);
 
   const lines: string[] = [`Project '${state.metadata.projectName}' (stacks: ${state.metadata.activeStacks.join(', ') || 'not detected yet'}).`];
-  if (latestHandoff) {
+  const handoffsForYou = agent ? addressedTo(state.handoffs, agent) : undefined;
+  for (const h of handoffsForYou ?? []) {
+    lines.push(`For you (${agent}) from ${h.from ?? 'a session'} at ${h.createdAt}: ${h.summary}`);
+    if (h.nextSteps.length) lines.push(`  Asked next: ${h.nextSteps.join('; ')}`);
+    if (h.openQuestions.length) lines.push(`  Open questions: ${h.openQuestions.join('; ')}`);
+  }
+  if (latestHandoff && !handoffsForYou?.includes(latestHandoff)) {
     lines.push(`Last session (${latestHandoff.createdAt}): ${latestHandoff.summary}`);
     if (latestHandoff.nextSteps.length) lines.push(`Planned next: ${latestHandoff.nextSteps.join('; ')}`);
     if (latestHandoff.openQuestions.length) lines.push(`Open questions: ${latestHandoff.openQuestions.join('; ')}`);
@@ -56,8 +65,15 @@ export function buildBriefing(
     briefing: lines.join('\n'),
     pendingPlans,
     latestHandoff,
+    ...(handoffsForYou ? { handoffsForYou } : {}),
     recentDecisions,
     lastQa,
     recentCheckpoints: checkpoints.slice(0, 5),
   };
+}
+
+/** Handoffs addressed to `agent` since it last handed something over itself (at most 3, oldest first). */
+function addressedTo(handoffs: StateManifest['handoffs'], agent: string): StateManifest['handoffs'] {
+  const lastOwn = handoffs.map((h) => h.from).lastIndexOf(agent);
+  return handoffs.slice(lastOwn + 1).filter((h) => h.to === agent).slice(-3);
 }

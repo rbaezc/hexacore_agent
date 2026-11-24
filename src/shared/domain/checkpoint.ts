@@ -13,6 +13,8 @@ export interface Checkpoint {
   createdAt: string;
   status: 'open' | 'rolled_back';
   changes: FileChange[];
+  /** The agent (role) whose action made the checkpoint, when known. */
+  agent?: string;
   /** Absolute directories this checkpoint created (absent in journals written before 3.5.1). */
   createdDirs?: string[];
 }

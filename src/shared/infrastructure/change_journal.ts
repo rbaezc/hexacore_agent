@@ -3,6 +3,7 @@ import { IFileSystem } from './file_system.js';
 import { WorkspaceContext } from './workspace.js';
 import { Result, ok, fail } from '../domain/result.js';
 import { Checkpoint, RollbackReport } from '../domain/checkpoint.js';
+import { currentAgent } from './agent_context.js';
 
 /**
  * Every file HexaCore writes goes through a checkpoint that remembers the original content,
@@ -23,6 +24,8 @@ export class ChangeJournal {
       status: 'open',
       changes: [],
     };
+    const agent = currentAgent();
+    if (agent) checkpoint.agent = agent;
     await this.persist(checkpoint);
     return checkpoint;
   }
