@@ -9,6 +9,8 @@ export interface IFileSystem {
   appendFile(filePath: string, content: string): Promise<void>;
   /** Removes a file or a whole directory tree; missing paths are ignored. */
   remove(targetPath: string): Promise<void>;
+  /** Removes a directory only if it is empty; returns whether it was removed. */
+  removeEmptyDir(dirPath: string): Promise<boolean>;
   exists(filePath: string): Promise<boolean>;
   ensureDir(dirPath: string): Promise<void>;
   /**
@@ -53,6 +55,15 @@ export class NodeFileSystem implements IFileSystem {
 
   async remove(targetPath: string): Promise<void> {
     await fs.rm(targetPath, { force: true, recursive: true });
+  }
+
+  async removeEmptyDir(dirPath: string): Promise<boolean> {
+    try {
+      await fs.rmdir(dirPath); // non-recursive: fails on anything inside
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async exists(filePath: string): Promise<boolean> {

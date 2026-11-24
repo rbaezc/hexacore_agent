@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Rolling back a checkpoint now also removes the directories that checkpoint created, deepest first and only when they are empty, so undoing a scaffold no longer leaves an empty slice tree behind. Directories that existed before, or that hold anything HexaCore didn't write, are kept. The rollback report lists them in `removedDirs`. Checkpoints written by earlier versions roll back as before.
+
 ## [3.5.0] - 2026-11-13
 
 ### Added

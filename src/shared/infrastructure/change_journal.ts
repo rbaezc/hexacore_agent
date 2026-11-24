@@ -38,6 +38,7 @@ export class ChangeJournal {
       const original = (await this.fileSystem.exists(absolute)) ? await this.fileSystem.readFile(absolute) : null;
       change = { path: absolute, original, written: content };
       checkpoint.changes.push(change);
+      if (original === null) await this.recordMissingDirs(checkpoint, path.dirname(absolute));
     }
     change.written = content;
 
@@ -73,7 +74,7 @@ export class ChangeJournal {
     const checkpoint = loaded.value;
     if (checkpoint.status === 'rolled_back') return fail(new Error(`Checkpoint '${checkpointId}' was already rolled back.`));
 
-    const report: RollbackReport = { checkpointId, applied: false, restored: [], deleted: [], conflicts: [] };
+    const report: RollbackReport = { checkpointId, applied: false, restored: [], deleted: [], removedDirs: [], conflicts: [] };
     for (const change of checkpoint.changes) {
       const exists = await this.fileSystem.exists(change.path);
       const current = exists ? await this.fileSystem.readFile(change.path) : null;
@@ -91,11 +92,26 @@ export class ChangeJournal {
         report.restored.push(this.workspace.relative(change.path));
       }
     }
+    // Deepest first, and only when empty: anything someone else put there keeps its directory.
+    const dirs = [...(checkpoint.createdDirs ?? [])].sort((a, b) => b.length - a.length);
+    for (const dir of dirs) {
+      if (await this.fileSystem.removeEmptyDir(dir)) report.removedDirs.push(this.workspace.relative(dir));
+    }
 
     report.applied = true;
     checkpoint.status = 'rolled_back';
     await this.persist(checkpoint);
     return ok(report);
+  }
+
+  /** Records the directories between `dir` and the workspace root that don't exist yet. */
+  private async recordMissingDirs(checkpoint: Checkpoint, dir: string): Promise<void> {
+    const root = this.workspace.root;
+    const created = (checkpoint.createdDirs ??= []);
+    for (let current = dir; current !== root && current.startsWith(root + path.sep); current = path.dirname(current)) {
+      if (await this.fileSystem.exists(current)) break;
+      if (!created.includes(current)) created.push(current);
+    }
   }
 
   private checkpointFile(id: string): string {

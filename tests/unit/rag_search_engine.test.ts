@@ -14,6 +14,9 @@ class MockDocsFileSystem implements IFileSystem {
   async writeFileAtomic(): Promise<void> {}
   async exists(): Promise<boolean> { return true; }
   async ensureDir(): Promise<void> {}
+  async removeEmptyDir(): Promise<boolean> {
+    return false;
+  }
 
   async listDirectory(): Promise<string[]> {
     return ['/docs/rules.md'];

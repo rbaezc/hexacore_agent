@@ -13,6 +13,8 @@ export interface Checkpoint {
   createdAt: string;
   status: 'open' | 'rolled_back';
   changes: FileChange[];
+  /** Absolute directories this checkpoint created (absent in journals written before 3.5.1). */
+  createdDirs?: string[];
 }
 
 export interface RollbackReport {
@@ -21,6 +23,8 @@ export interface RollbackReport {
   applied: boolean;
   restored: string[];
   deleted: string[];
+  /** Directories the checkpoint created and the rollback removed because they were left empty. */
+  removedDirs: string[];
   /** Files modified after HexaCore wrote them; while any exist the rollback is refused unless `force` is set. */
   conflicts: string[];
 }
