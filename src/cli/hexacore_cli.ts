@@ -41,6 +41,7 @@ const USAGE = `Usage: hexacore <command> [args] [--workspace <dir>]
   lessons [query…] [--stack s]            Review learned lessons (or search them)
   export-skills [lessonId,…]              Export proven lessons as Claude Code skills
   share-lessons [lessonId,…]              Share proven lessons with your other projects (~/.hexacore)
+  agents export [dev,qa,e2e]              Write the dev/qa/e2e roles as Claude Code subagents (--server, --overwrite)
   prototype <name> <file.html> [--note n] [--target t]   Save a file as a new prototype version
   prototypes                              List prototypes and their preview URLs
   promote <name> <target> [--version n] [--overwrite]    Copy a prototype into the project
@@ -108,6 +109,9 @@ function toToolCall(command: string, args: string[], flags: Record<string, strin
       return { tool: 'export_skills', input: { lessonIds: list(args[0]) } };
     case 'share-lessons':
       return { tool: 'share_lessons', input: { lessonIds: list(args[0]) } };
+    case 'agents':
+      if (args[0] !== 'export') throw new Error('Usage: agents export [dev,qa,e2e] [--server <name>] [--overwrite]');
+      return { tool: 'export_agents', input: { roles: list(args[1]), serverName: str(flags.server), overwrite: flags.overwrite === true || undefined } };
     default:
       return undefined;
   }
