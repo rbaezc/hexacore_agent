@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Watch mode dispatches the qa agent** (ADR 3): `hexacore watch --dispatch qa` hands checks that just broke to the qa role through a handoff and opens `claude --agent hexacore-qa` in a new pane (`--launcher wt|tmux|print` or a command template; detected from the terminal). Guardrails: `--maxAgents` (1), one agent per failing check, nothing while a check stays red, `--cooldown` (10m), a check whose agent timed out waits until it passes once, and at most 5 agents per watch session.
+
 ## [3.6.0] - 2026-11-24
 
 ### Added
