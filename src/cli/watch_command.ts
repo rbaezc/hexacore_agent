@@ -1,10 +1,18 @@
 import * as path from 'node:path';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createHexaCore, HexaCoreServices } from '../composition_root.js';
 import { ok, fail } from '../shared/domain/result.js';
 import { QACheck, TOOLCHAIN_CHECKS } from '../features/quality_assurance/domain/qa_types.js';
 import {
   CheckRunner,
+  DISPATCH_ROLES,
+  Dispatcher,
+  DispatchPolicy,
+  DispatchRole,
+  LAUNCHERS,
+  detectLauncher,
+  isLauncher,
+  parseDuration,
   NOTIFIER_NAMES,
   NodeFileWatcher,
   NotifierName,
@@ -61,11 +69,53 @@ export function createCheckRunner(services: HexaCoreServices, targets: { stack: 
   };
 }
 
+export interface DispatchConfig {
+  role: DispatchRole;
+  launcher: string;
+  maxAgents: number;
+  cooldownMs: number;
+}
+
+/** Reads --dispatch, --launcher, --maxAgents and --cooldown; undefined when dispatch is off. */
+export function parseDispatchFlags(flags: Flags, env: NodeJS.ProcessEnv = process.env): DispatchConfig | undefined {
+  if (flags.dispatch === undefined) return undefined;
+  const role = flags.dispatch === true ? 'qa' : String(flags.dispatch);
+  if (!(DISPATCH_ROLES as readonly string[]).includes(role)) throw new Error(`watch can dispatch ${DISPATCH_ROLES.join(', ')}, not '${role}'`);
+  const launcher = typeof flags.launcher === 'string' ? flags.launcher : detectLauncher(env);
+  if (!isLauncher(launcher)) throw new Error(`Unknown launcher '${launcher}' (use ${LAUNCHERS.join(', ')}, or a template with {command})`);
+  const maxAgents = flags.maxAgents === undefined ? 1 : Number(flags.maxAgents);
+  if (!Number.isInteger(maxAgents) || maxAgents < 1) throw new Error('--maxAgents must be a whole number of at least 1');
+  const cooldownMs = typeof flags.cooldown === 'string' ? parseDuration(flags.cooldown) : 600_000;
+  if (cooldownMs === undefined || cooldownMs < 1000) throw new Error('--cooldown must be a duration like 10m, 90s or 1h');
+  return { role: role as DispatchRole, launcher, maxAgents, cooldownMs };
+}
+
+/** Wires dispatch to the state: the handoff for the role, and whether the role reported back. */
+export function createDispatcher(services: HexaCoreServices, config: DispatchConfig, log: (line: string) => void): Dispatcher {
+  return new Dispatcher({
+    policy: new DispatchPolicy({ maxAgents: config.maxAgents, cooldownMs: config.cooldownMs }),
+    role: config.role,
+    launcher: config.launcher,
+    cwd: services.workspace.root,
+    log,
+    recordHandoff: async (note) => {
+      const saved = await services.stateRepo.addHandoff({ id: `handoff_${Date.now()}`, ...note, createdAt: new Date().toISOString(), from: 'watch', to: config.role });
+      if (saved.isFailure) throw saved.error;
+    },
+    reportedSince: async (role, sinceIso) => {
+      const state = await services.stateRepo.loadState();
+      return state.isSuccess && state.value.handoffs.some((h) => h.from === role && h.createdAt > sinceIso);
+    },
+  });
+}
+
 /** `hexacore watch`: runs in the foreground until Ctrl+C. */
 export async function runWatch(workspaceRoot: string | undefined, flags: Flags): Promise<number> {
   let checks: QACheck[];
   let notify: NotifierName[];
+  let dispatch: DispatchConfig | undefined;
   try {
+    dispatch = parseDispatchFlags(flags);
     checks = parseList(flags.checks, TOOLCHAIN_CHECKS, DEFAULT_CHECKS, 'check');
     notify = parseList(flags.notify, NOTIFIER_NAMES, [...NOTIFIER_NAMES], 'notifier');
   } catch (error: any) {
@@ -90,6 +140,10 @@ export async function runWatch(workspaceRoot: string | undefined, flags: Flags):
   }
 
   const log = (line: string) => console.error(`[${new Date().toLocaleTimeString()}] ${line}`);
+  const dispatcher = dispatch ? createDispatcher(services, dispatch, log) : undefined;
+  if (dispatch && !existsSync(path.join(root, '.claude', 'agents', `hexacore-${dispatch.role}.md`))) {
+    log(`! .claude/agents/hexacore-${dispatch.role}.md not found: run 'hexacore agents export' so Claude Code knows the ${dispatch.role} role.`);
+  }
   const service = new WatchService({
     watcher: new NodeFileWatcher(root, (e) => log(`! watcher error: ${e.message}`)),
     run: createCheckRunner(services, targets, checks),
@@ -99,9 +153,10 @@ export async function runWatch(workspaceRoot: string | undefined, flags: Flags):
     debounceMs,
     multiStack: targets.length > 1,
     log,
+    afterRun: dispatcher ? (t) => dispatcher.afterRun(t) : undefined,
   });
 
-  log(`Watching ${root} — ${targets.map((t) => `${t.stack}${t.dir === '.' ? '' : ` (${t.dir})`}`).join(', ')}: ${checks.join(', ')}; alerts: ${notify.join(', ')} (${lang}). Ctrl+C to stop.`);
+  log(`Watching ${root} — ${targets.map((t) => `${t.stack}${t.dir === '.' ? '' : ` (${t.dir})`}`).join(', ')}: ${checks.join(', ')}; alerts: ${notify.join(', ')} (${lang})${dispatch ? `; dispatch: ${dispatch.role} via ${dispatch.launcher.length > 20 ? 'template' : dispatch.launcher} (max ${dispatch.maxAgents}, cooldown ${Math.round(dispatch.cooldownMs / 60000)}m)` : ''}. Ctrl+C to stop.`);
   const stop = () => {
     service.stop();
     process.exit(0);
