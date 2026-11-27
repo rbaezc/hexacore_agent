@@ -1,3 +1,5 @@
+import type { CustomLayout } from './custom_layout.js';
+
 export type ArchitectureRole = 'domain' | 'application' | 'infrastructure' | 'presentation' | 'module' | 'test' | 'unknown';
 
 export type SourceLanguage = 'typescript' | 'dart' | 'python' | 'rust' | 'go' | 'csharp' | 'php' | 'ruby' | 'elixir';
@@ -6,6 +8,8 @@ export type SourceLanguage = 'typescript' | 'dart' | 'python' | 'rust' | 'go' | 
 export interface SourceLocation {
   slice: string;
   role: ArchitectureRole;
+  /** Layer name (lowercase) in a project-defined layout (hexacore.json architecture.layout). */
+  layer?: string;
 }
 
 export interface ImportReference {
@@ -36,6 +40,10 @@ export interface ArchitectureReport {
   truncated: boolean;
   /** Slices declared as composition in hexacore.json: they may use other slices' public modules. */
   compositionSlices: string[];
+  /** 'custom' when hexacore.json defines architecture.layout. */
+  layout: 'default' | 'custom';
+  /** Problems in hexacore.json; the audit then used the default rules. */
+  configErrors?: string[];
 }
 
 /**
@@ -45,6 +53,8 @@ export interface ArchitectureReport {
  */
 export interface ArchitectureConfig {
   compositionSlices: string[];
+  custom?: CustomLayout;
+  errors: string[];
 }
 
 /** Which roles each role may depend on inside its own slice. module/test/unknown are unrestricted. */
