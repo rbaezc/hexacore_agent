@@ -182,6 +182,39 @@ Installed from npm (or after `npm run build`), the same commands are available a
 1. **250-line limit** for every source file (generated code is blocked before writing; existing code is reported by `check_architecture`).
 2. **Layer direction**: domain → nothing; application → domain; infrastructure → domain/application; presentation → application/domain.
 3. **No horizontal coupling** between slices; communicate via `shared/domain` contracts or domain events. Importing another slice's public module is a warning, its internals an error. Slices that exist to coordinate others can be declared in `hexacore.json` (`{ "architecture": { "compositionSlices": ["orchestrator"] } }`): their public-module imports are expected, their internal imports are still errors.
+   - **Your own layout** (ADR 4): a project that already uses vertical slices with its own folders and layers describes them in `hexacore.json`, and `check_architecture` audits it with those rules instead of the built-in layouts. Example, a .NET modular monolith with an Angular front end:
+     ```json
+     {
+       "architecture": {
+         "layout": [
+           "src/Modules/{slice}/{slice}.{layer}/**",
+           "src/Modules/{slice}/{slice}/{layer}/**",
+           "src/Modules/{slice}/{slice}/*",
+           "web/src/app/features/{slice}/{layer}/**"
+         ],
+         "namespaces": ["{slice}.{layer}", "{slice}"],
+         "layers": {
+           "Contracts":      { "public": true, "dependsOn": [] },
+           "Domain":         { "dependsOn": ["Contracts"] },
+           "Features":       { "dependsOn": ["Domain", "Infrastructure", "Persistence", "Contracts"] },
+           "Infrastructure": { "dependsOn": ["Domain", "Contracts"] },
+           "Persistence":    { "dependsOn": ["Domain", "Contracts"] }
+         },
+         "ignore": ["**/Migraciones/**"],
+         "maxFileLines": 400
+       }
+     }
+     ```
+     - **`layout`**: where slices live. Patterns use `{slice}`, `{layer}`, `*` (one directory level) and `**` (any depth). The first pattern that matches wins. A repeated `{slice}` must be the same name. A pattern without `{layer}` is the slice root.
+     - **`namespaces`**: resolve C# `using` directives the same way; sub-namespaces belong to the match. Relative TS/JS imports are resolved through `layout`.
+     - **`layers`**: layer names are case-insensitive.
+       - Other slices may use a `public` layer. Using any other layer of another slice is an error. Using another slice's root is a warning, unless the slice is in `compositionSlices`.
+       - Inside a slice, a layer may use itself, the layers in its `dependsOn`, and layers not declared. `["*"]` or no `dependsOn` means unrestricted.
+     - **`ignore`**: globs left out of the audit, such as generated code.
+     - **`maxFileLines`**: replaces the 250-line limit.
+     - **Tests**: files named like tests (`*.spec.ts`, `*Tests.cs`…) are exempt from the layer rules and the line limit.
+     - **Errors**: when the config is wrong, the report lists the problems in `configErrors` and the audit uses the default rules. `layout: "custom"` in the report confirms yours was used, and `slices` lists what it found.
+     - Without `layout`, nothing changes.
 4. **Tests are the specification**: automated fixes never edit test files.
 5. **Reversible writes**: every write goes through a checkpoint in `.hexagen/checkpoints/`.
 6. **Sandboxed execution**: allowlisted executables only, argv without a shell, path traversal blocked, process-tree kill on timeout.
