@@ -37,11 +37,8 @@ export class StateRepository {
   async loadState(): Promise<Result<StateManifest, Error>> {
     try {
       const exists = await this.fileSystem.exists(this.manifestPath);
-      if (!exists) {
-        const initialState = this.createDefaultManifest();
-        await this.saveState(initialState);
-        return ok(initialState);
-      }
+      // Reading never creates .hexagen/: a project gets it on its first write (update/saveState).
+      if (!exists) return ok(this.createDefaultManifest());
       const raw = await this.fileSystem.readFile(this.manifestPath);
       const parsed = JSON.parse(raw);
       const validationResult = StateValidator.validate(parsed);
