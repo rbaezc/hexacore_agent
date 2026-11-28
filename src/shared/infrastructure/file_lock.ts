@@ -15,6 +15,8 @@ export interface FileLockOptions {
  * A lock whose owner process is gone, or that is older than `staleMs`, is taken over.
  * Resolves to the release function; release only removes the lock if it is still ours.
  */
+const BUSY_CODES = new Set(['EEXIST', 'EPERM', 'EACCES', 'EBUSY']);
+
 export async function acquireFileLock(filePath: string, options: FileLockOptions = {}): Promise<() => Promise<void>> {
   const lockPath = `${filePath}.lock`;
   const staleMs = options.staleMs ?? STALE_MS;
@@ -22,6 +24,7 @@ export async function acquireFileLock(filePath: string, options: FileLockOptions
   const token = `${process.pid}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
   await fs.mkdir(path.dirname(lockPath), { recursive: true });
 
+  let lastCode = 'EEXIST';
   for (let attempt = 0; ; attempt++) {
     try {
       await fs.writeFile(lockPath, token, { flag: 'wx' });
@@ -33,15 +36,19 @@ export async function acquireFileLock(filePath: string, options: FileLockOptions
         }
       };
     } catch (error: any) {
-      if (error?.code !== 'EEXIST') throw error;
+      // Windows answers EPERM/EACCES/EBUSY (not EEXIST) while another holder's lock file is being deleted: busy, retry.
+      if (!BUSY_CODES.has(error?.code)) throw error;
+      lastCode = error.code;
     }
-    const stale = await staleContent(lockPath, staleMs);
+    const stale = lastCode === 'EEXIST' ? await staleContent(lockPath, staleMs) : null;
     if (stale !== null) {
       // Only remove the lock we judged stale, not one another process took over meanwhile.
       if ((await fs.readFile(lockPath, 'utf-8').catch(() => null)) === stale) await fs.unlink(lockPath).catch(() => undefined);
       continue;
     }
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${lockPath}; remove it if no HexaCore process is running.`);
+    if (Date.now() > deadline) {
+      throw new Error(`Timed out waiting for ${lockPath} (${lastCode}); remove it if no HexaCore process is running.`);
+    }
     await new Promise((r) => setTimeout(r, Math.min(200, 10 + attempt * 5) + Math.random() * 20));
   }
 }

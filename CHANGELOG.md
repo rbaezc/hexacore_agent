@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.1] - 2026-11-27
+
+### Fixed
+
+- Cross-process lock on Windows: creating the lock file while another process was deleting its own failed with `EPERM` (instead of `EEXIST`), so a state, lessons or profile update could fail when two agents or watch mode wrote at the same moment. `EPERM`, `EACCES` and `EBUSY` now mean "busy, retry" until the usual timeout, whose message names the last error. 3.7.0 was not published to npm because its pre-publish tests caught this.
+
 ## [3.7.0] - 2026-11-27
 
 ### Added
