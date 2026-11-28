@@ -14,7 +14,8 @@ function paint(text: string, code: string, color: boolean): string {
 export function formatEvent(e: ActivityEvent, color: boolean): string {
   const time = new Date(e.at).toLocaleTimeString();
   const agent = paint(e.agent.padEnd(6), ROLE_COLORS[e.agent] ?? '37', color);
-  const icon = e.kind === 'qa' ? (e.ok ? paint('✓', '32', color) : paint('✗', '31', color)) : ICONS[e.kind];
+  const qaIcon = e.ok === undefined ? paint('–', '90', color) : e.ok ? paint('✓', '32', color) : paint('✗', '31', color);
+  const icon = e.kind === 'qa' ? qaIcon : ICONS[e.kind];
   const text = e.kind === 'rollback' ? paint(e.text, '33', color) : e.text;
   return `${paint(time, '90', color)}  ${agent} ${icon} ${text}`;
 }

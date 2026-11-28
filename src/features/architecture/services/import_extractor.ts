@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { ArchitectureRole, ImportReference, SourceLanguage } from '../domain/architecture_types.js';
+import { ArchitectureRole, ImportReference, SourceLanguage, SourceLocation } from '../domain/architecture_types.js';
 import { classifyPath, normalizeSlice } from './source_classifier.js';
 
 export interface ExtractionContext {
@@ -12,6 +12,10 @@ export interface ExtractionContext {
   elixirModule?: string;
   /** Normalized names of every slice found in the scan (for namespace-based languages). */
   knownSlices: ReadonlySet<string>;
+  /** Project-defined layout: resolves paths instead of the built-in layouts. */
+  classify?: (relPath: string) => SourceLocation | undefined;
+  /** Project-defined namespaces (C# usings). */
+  namespace?: (name: string) => SourceLocation | undefined;
 }
 
 const NAMESPACE_LAYERS: Record<string, ArchitectureRole> = {
@@ -29,7 +33,7 @@ export function extractImports(content: string, ctx: ExtractionContext): ImportR
   const dir = path.posix.dirname(ctx.relPath);
 
   const fromPath = (line: number, specifier: string, targetPath: string) => {
-    const target = classifyPath(path.posix.normalize(targetPath));
+    const target = (ctx.classify ?? classifyPath)(path.posix.normalize(targetPath));
     if (target) refs.push({ line, specifier, target });
   };
   const fromNamespace = (line: number, specifier: string, slice: string, layer?: string) => {
@@ -108,6 +112,12 @@ export function extractImports(content: string, ctx: ExtractionContext): ImportR
         for (const m of text.matchAll(/"([^"]*\/internal\/slices\/(\w+)[^"]*)"/g)) fromPath(line, m[1], `internal/slices/${m[2]}/module.go`);
         break;
       case 'csharp':
+        if (ctx.namespace) {
+          const using = text.match(/^\s*(?:global\s+)?using\s+(?:static\s+)?(?:\w+\s*=\s*)?([A-Za-z_][\w.]*)\s*;/);
+          const target = using ? ctx.namespace(using[1]) : undefined;
+          if (target && ctx.knownSlices.has(target.slice)) refs.push({ line, specifier: using![1], target });
+          break;
+        }
         for (const m of text.matchAll(/\bFeatures\.(\w+)(?:\.(\w+))?/g)) fromNamespace(line, m[0], m[1], m[2]);
         break;
       case 'php':

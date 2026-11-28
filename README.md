@@ -110,12 +110,14 @@ hexacore listen --lang es       # Enter to talk, Enter to stop (or type the comm
 ```bash
 hexacore agents export          # .claude/agents/hexacore-dev.md, hexacore-qa.md, hexacore-e2e.md
 hexacore activity               # live feed for a side pane: who wrote, checked, rolled back or handed off what
+hexacore watch --dispatch qa    # when a check breaks, open a qa agent in a new pane with the failure loaded
 ```
 
 - **Roles**: `hexacore-dev` designs, scaffolds and implements; `hexacore-qa` runs the real checks, fixes failures (never by weakening tests) and records lessons; `hexacore-e2e` checks the running app and the UI and reports what breaks. Each gets only the tools of its role: qa can't scaffold, e2e can't edit source.
 - **On demand or on their own**: ask for one ("use hexacore-qa to …") or run it in its own terminal pane (Herdr, tmux…); Claude Code also delegates to a role by itself when a task matches its description. `--server` sets the name HexaCore is registered under (default `hexacore-agent`); files you edited by hand are kept unless `--overwrite`.
 - **Who did what**: every tool takes an optional `agent`, and `HEXACORE_AGENT` sets it for a whole process (one pane per agent). Checkpoints, rollbacks, QA runs and handoffs record it.
 - **Handoffs**: `record_handoff` with `to: "qa"` hands the work over; the qa agent's `resume_session` lists the handoffs addressed to it first.
+- **Agents that start themselves**: with `--dispatch qa`, watch mode hands a check that just broke to the qa role (a handoff with the failing tests, files and first error lines) and opens `claude --agent hexacore-qa` in a new pane: Windows Terminal (`--launcher wt`), tmux (`tmux`), any terminal through a template (`--launcher "herdr pane run -- {command}"`), or `print` to only show the command. It is chosen from the terminal you run watch in; outside Windows Terminal and tmux it prints. Guardrails, since the agent spends your tokens: one agent at a time (`--maxAgents`), one per failing check, none while a check stays red, an agent counts as working until its checks pass, it records a handoff or `--cooldown` (10m) passes, and at most 5 per watch session.
 - **Several agents, one project**: state, lessons and profile writes are locked across processes, so agents and `hexacore watch` can run side by side without losing updates.
 
 ## Learning loop
@@ -180,7 +182,7 @@ npx tsx src/cli/hexacore_cli.ts arch src --strict   # self-audit, warnings fail 
 - `.claude/skills/hexacore-*/` — lessons exported as Claude Code skills, when you ask for them.
 - `.claude/agents/hexacore-*.md` — the dev, qa and e2e roles as Claude Code subagents, when you export them (commit them to share the roles).
 - `.hexagen/*.lock` — short-lived locks while a state file is being written; a leftover one from a crashed process is taken over automatically.
-- `hexacore.json` — optional project config, e.g. `{ "architecture": { "compositionSlices": ["orchestrator"] } }`: slices that exist to coordinate others (orchestrators, API or tool layers) may use their public modules without warnings; reaching their internals is still an error.
+- `hexacore.json` — optional project config, e.g. `{ "architecture": { "compositionSlices": ["orchestrator"] } }`: slices that exist to coordinate others (orchestrators, API or tool layers) may use their public modules without warnings; reaching their internals is still an error. Projects with their own vertical-slice convention (other folders, other layers, e.g. a .NET modular monolith where modules only share `Contracts`) describe it with `layout`, `namespaces`, `layers` (`public`, `dependsOn`), `ignore` and `maxFileLines`, and `check_architecture` audits their rules instead (see the manual).
 - `.hexagen/profile.json` and `~/.hexacore/profile.json` — preferences for this project and for you, and your observed habits.
 - `~/.hexacore/lessons/` and `~/.hexacore/learning.json` — your lesson library, shared across projects, when you share lessons (outside the project).
 - `.hexagen/prototypes/` — UI prototypes: the current version of each in `<name>/`, every version in `.versions/`, metadata in `.meta/` and screenshots in `.shots/`.

@@ -12,6 +12,8 @@ export interface WatchServiceDeps {
   debounceMs: number;
   multiStack?: boolean;
   log?: (line: string) => void;
+  /** Called after the alerts of every run (dispatch hooks in here); errors only go to the log. */
+  afterRun?: (transitions: Transition[]) => Promise<void>;
 }
 
 /**
@@ -101,6 +103,9 @@ export class WatchService {
       await Promise.all(
         targets.map((n) => n.notify(alert).catch((error: Error) => log(`! ${n.name} notification failed: ${error.message}`)))
       );
+    }
+    if (this.deps.afterRun) {
+      await this.deps.afterRun(transitions).catch((error: Error) => log(`! dispatch failed: ${error.message}`));
     }
     return transitions;
   }

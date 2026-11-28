@@ -182,6 +182,39 @@ Installed from npm (or after `npm run build`), the same commands are available a
 1. **250-line limit** for every source file (generated code is blocked before writing; existing code is reported by `check_architecture`).
 2. **Layer direction**: domain → nothing; application → domain; infrastructure → domain/application; presentation → application/domain.
 3. **No horizontal coupling** between slices; communicate via `shared/domain` contracts or domain events. Importing another slice's public module is a warning, its internals an error. Slices that exist to coordinate others can be declared in `hexacore.json` (`{ "architecture": { "compositionSlices": ["orchestrator"] } }`): their public-module imports are expected, their internal imports are still errors.
+   - **Your own layout** (ADR 4): a project that already uses vertical slices with its own folders and layers describes them in `hexacore.json`, and `check_architecture` audits it with those rules instead of the built-in layouts. Example, a .NET modular monolith with an Angular front end:
+     ```json
+     {
+       "architecture": {
+         "layout": [
+           "src/Modules/{slice}/{slice}.{layer}/**",
+           "src/Modules/{slice}/{slice}/{layer}/**",
+           "src/Modules/{slice}/{slice}/*",
+           "web/src/app/features/{slice}/{layer}/**"
+         ],
+         "namespaces": ["{slice}.{layer}", "{slice}"],
+         "layers": {
+           "Contracts":      { "public": true, "dependsOn": [] },
+           "Domain":         { "dependsOn": ["Contracts"] },
+           "Features":       { "dependsOn": ["Domain", "Infrastructure", "Persistence", "Contracts"] },
+           "Infrastructure": { "dependsOn": ["Domain", "Contracts"] },
+           "Persistence":    { "dependsOn": ["Domain", "Contracts"] }
+         },
+         "ignore": ["**/Migraciones/**"],
+         "maxFileLines": 400
+       }
+     }
+     ```
+     - **`layout`**: where slices live. Patterns use `{slice}`, `{layer}`, `*` (one directory level) and `**` (any depth). The first pattern that matches wins. A repeated `{slice}` must be the same name. A pattern without `{layer}` is the slice root.
+     - **`namespaces`**: resolve C# `using` directives the same way; sub-namespaces belong to the match. Relative TS/JS imports are resolved through `layout`.
+     - **`layers`**: layer names are case-insensitive.
+       - Other slices may use a `public` layer. Using any other layer of another slice is an error. Using another slice's root is a warning, unless the slice is in `compositionSlices`.
+       - Inside a slice, a layer may use itself, the layers in its `dependsOn`, and layers not declared. `["*"]` or no `dependsOn` means unrestricted.
+     - **`ignore`**: globs left out of the audit, such as generated code.
+     - **`maxFileLines`**: replaces the 250-line limit.
+     - **Tests**: files named like tests (`*.spec.ts`, `*Tests.cs`…) are exempt from the layer rules and the line limit.
+     - **Errors**: when the config is wrong, the report lists the problems in `configErrors` and the audit uses the default rules. `layout: "custom"` in the report confirms yours was used, and `slices` lists what it found.
+     - Without `layout`, nothing changes.
 4. **Tests are the specification**: automated fixes never edit test files.
 5. **Reversible writes**: every write goes through a checkpoint in `.hexagen/checkpoints/`.
 6. **Sandboxed execution**: allowlisted executables only, argv without a shell, path traversal blocked, process-tree kill on timeout.
@@ -230,6 +263,9 @@ Commit `.hexagen/state.json` if you want plans, ADR index and handoffs shared wi
 - **Alerts**: a check that goes red (`broke`), goes green (`fixed`) or is red on the first run interrupts you through every notifier; a check that stays red, or a green first run, is only logged. A skipped check (tool missing) never changes the known status.
 - **Notifiers** (`--notify`): `console`; `desktop` (Windows toast via PowerShell, `osascript` on macOS, `notify-send` on Linux); `voice` (System.Speech with a voice of the alert's language when one is installed, `say`, `spd-say`). A notifier that fails is logged and the others still run. Alert text is passed in environment variables or argv, never as script code.
 - **Memory**: each run is added to the QA history with `source: "watch"` and observed by the learning loop, so `resume_session` reports "node/test (2 failing, seen by watch mode at …)".
+- **Dispatch** (`--dispatch qa`, off by default): when checks break (or are red on the first run), watch records a handoff from `watch` to `qa` (failing checks, up to 5 failures with file, line, test and first error line, and what to do next) and then opens `claude --agent hexacore-qa "<prompt>"` with `HEXACORE_AGENT=qa`. The prompt only names the checks and tells the agent to read the handoff; it is limited to letters, digits and `,./:_-` because it travels through terminal command lines.
+- **Launchers** (`--launcher`): `wt` splits the current Windows Terminal window (PowerShell, script passed with `-EncodedCommand`); `tmux` runs `split-window -h`; a template with `{command}`, `{prompt}`, `{agent}`, `{role}` or `{cwd}` runs through your shell; `print` only prints the command. Default: `tmux` inside tmux, `wt` inside Windows Terminal, otherwise `print`. If the launcher fails, the command to run by hand is printed; the handoff is already saved. Export the roles first (`hexacore agents export`); watch warns when `.claude/agents/hexacore-qa.md` is missing.
+- **Guardrails**: still-failing checks never dispatch; one agent per failing check; at most `--maxAgents` (default 1) in flight; an agent stops counting when all its checks pass, when the role records a handoff, or after `--cooldown` (default `10m`; `90s`, `1h` or ms also work); a check whose agent timed out gets no new one until it has passed once; at most 5 agents per watch session. Every start and every skip is logged with its reason, and the handoff shows in `hexacore activity`.
 
 ### Voice commands
 - **Pipeline**: Enter starts ffmpeg (16 kHz mono WAV: DirectShow on Windows, the first microphone unless `HEXACORE_MIC`; avfoundation on macOS; PulseAudio on Linux), Enter stops it, whisper.cpp transcribes it offline in the session's language, and the answer is printed and spoken (`--mute` to print only). Typed lines are handled the same way.

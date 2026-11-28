@@ -10,7 +10,7 @@ export interface ActivityEvent {
   agent: string;
   kind: 'write' | 'rollback' | 'qa' | 'handoff';
   text: string;
-  /** For qa: whether the check passed. */
+  /** For qa: whether the check passed; absent when it was skipped. */
   ok?: boolean;
 }
 
@@ -33,7 +33,8 @@ export function collectActivity(state: StateManifest, checkpoints: Checkpoint[])
       agent: q.agent ?? (q.source === 'watch' ? 'watch' : '-'),
       kind: 'qa',
       text: `${q.stack}/${q.check}: ${result}`,
-      ok: q.status === 'passed',
+      // Skipped (tool not configured) is neither a pass nor a failure.
+      ...(q.status === 'skipped' ? {} : { ok: q.status === 'passed' }),
     });
   }
   for (const h of state.handoffs) {

@@ -27,10 +27,20 @@ export function coreTools(s: HexaCoreServices): ToolDefinition[] {
       handler: async () => {
         const detected = await s.stackDetector.detect(s.workspace.root);
         const stacks = [...new Set(detected.map((d) => d.stack))];
-        const state = await s.stateRepo.update((st) => {
-          st.metadata.activeStacks = stacks;
-        });
+        // Read-only: refresh the stored stacks only in a project that already has state and only when they changed,
+        // so looking at a project never creates .hexagen/ in it.
+        let state = await s.stateRepo.loadState();
         if (state.isFailure) return fail(state.error);
+        const known = state.value.metadata.activeStacks ?? [];
+        const changed = known.length !== stacks.length || stacks.some((st) => !known.includes(st));
+        if (changed && (await s.fileSystem.exists(s.workspace.hexagenPath('state.json')))) {
+          state = await s.stateRepo.update((st) => {
+            st.metadata.activeStacks = stacks;
+          });
+          if (state.isFailure) return fail(state.error);
+        } else {
+          state.value.metadata.activeStacks = stacks;
+        }
         const checkpoints = (await s.journal.list(5)).map(({ id, label, createdAt, status, agent }) => ({ id, label, createdAt, status, ...(agent ? { agent } : {}) }));
         const briefing = buildBriefing(state.value, checkpoints, currentAgent());
         const learning = await s.learning.summary(stacks);

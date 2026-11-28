@@ -40,4 +40,11 @@ describe('activity feed', () => {
     expect(line).toMatch(/qa {5}✗ node\/test: 2 failing$/);
     expect(formatEvent(red, true)).toContain('\x1b[');
   });
+
+  it('marks a skipped check as neither passed nor failed', () => {
+    const skipped = { ...state, qaHistory: [{ stack: 'node', check: 'lint', status: 'skipped', failed: 0, total: 0, at: '2026-11-24T10:05:00.000Z', agent: 'qa' }], handoffs: [] };
+    const [event] = collectActivity(skipped, []);
+    expect(event.ok).toBeUndefined();
+    expect(formatEvent(event, false)).toMatch(/qa {5}– node\/lint: skipped$/);
+  });
 });

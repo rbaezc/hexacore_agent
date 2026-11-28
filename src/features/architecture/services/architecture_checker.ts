@@ -6,6 +6,7 @@ import { MAX_FILE_LINES } from '../../../shared/domain/policy.js';
 import { ALLOWED_DEPENDENCIES, ArchitectureConfig, ArchitectureReport, ArchitectureViolation, SourceLocation } from '../domain/architecture_types.js';
 import { classifyPath, isOutOfTreeTest, languageOf, normalizeSlice } from './source_classifier.js';
 import { extractImports } from './import_extractor.js';
+import { classifyCustomPath, classifyNamespace, evaluateCustom, isIgnoredByLayout, isTestFile, parseCustomLayout } from '../domain/custom_layout.js';
 
 const MAX_FILES = 5000;
 const MAX_FILE_BYTES = 1_000_000;
@@ -25,17 +26,19 @@ export class ArchitectureChecker {
 
     try {
       const all = await this.fileSystem.listDirectory(scope.value, DEFAULT_IGNORED_DIRS);
+      const config = await this.config();
+      const custom = config.custom;
       const sources = all
         .map((abs) => ({ abs, rel: this.workspace.relative(abs) }))
-        .filter((f) => languageOf(f.rel) !== undefined)
+        .filter((f) => languageOf(f.rel) !== undefined && !(custom && isIgnoredByLayout(custom, f.rel)))
         .slice(0, MAX_FILES);
 
       const elixir = await this.elixirNaming();
       const dartPackage = await this.dartPackage();
-      const config = await this.config();
       const composition = new Set(config.compositionSlices);
+      const maxLines = custom?.maxFileLines ?? MAX_FILE_LINES;
 
-      const located = sources.map((f) => ({ ...f, location: this.locate(f.rel, elixir?.app) }));
+      const located = sources.map((f) => ({ ...f, location: custom ? classifyCustomPath(custom, f.rel) : this.locate(f.rel, elixir?.app) }));
       const knownSlices = new Set(located.map((f) => f.location?.slice).filter((s): s is string => Boolean(s)));
       const violations: ArchitectureViolation[] = [];
 
@@ -43,14 +46,14 @@ export class ArchitectureChecker {
         const content = await this.fileSystem.readFile(file.abs);
         if (content.length > MAX_FILE_BYTES) continue;
         const lineCount = content.split(/\r?\n/).length;
-        const isTest = file.location?.role === 'test' || isOutOfTreeTest(file.rel);
+        const isTest = file.location?.role === 'test' || isOutOfTreeTest(file.rel) || isTestFile(file.rel);
 
-        if (lineCount > MAX_FILE_LINES && !isTest) {
+        if (lineCount > maxLines && !isTest) {
           violations.push({
             rule: 'MAX_LINE_COUNT_EXCEEDED',
             severity: file.location ? 'error' : 'warning',
             file: file.rel,
-            message: `${lineCount} lines (limit ${MAX_FILE_LINES}). Split by responsibility.`,
+            message: `${lineCount} lines (limit ${maxLines}). Split by responsibility.`,
           });
         }
         if (!file.location || isTest) continue;
@@ -61,9 +64,13 @@ export class ArchitectureChecker {
           dartPackage,
           elixirModule: elixir?.module,
           knownSlices,
+          classify: custom ? (p) => classifyCustomPath(custom, p) : undefined,
+          namespace: custom?.namespaces.length ? (n) => classifyNamespace(custom, n) : undefined,
         });
         for (const ref of imports) {
-          const violation = this.evaluate(file.rel, file.location, ref.target, ref.line, ref.specifier, composition);
+          const violation = custom
+            ? evaluateCustom(custom, file.rel, file.location, ref.target, ref.line, ref.specifier, composition)
+            : this.evaluate(file.rel, file.location, ref.target, ref.line, ref.specifier, composition);
           if (violation) violations.push(violation);
         }
       }
@@ -79,6 +86,8 @@ export class ArchitectureChecker {
         violations: violations.slice(0, MAX_REPORTED),
         truncated: violations.length > MAX_REPORTED || all.length > MAX_FILES,
         compositionSlices: config.compositionSlices,
+        layout: custom ? 'custom' : 'default',
+        ...(config.errors.length ? { configErrors: config.errors } : {}),
       });
     } catch (error: any) {
       return fail(new Error(`Architecture check failed: ${error.message}`));
@@ -135,13 +144,15 @@ export class ArchitectureChecker {
 
   private async config(): Promise<ArchitectureConfig> {
     const raw = await this.readRoot('hexacore.json');
-    if (!raw.trim()) return { compositionSlices: [] };
+    if (!raw.trim()) return { compositionSlices: [], errors: [] };
     try {
-      const slices = JSON.parse(raw)?.architecture?.compositionSlices;
-      return { compositionSlices: Array.isArray(slices) ? slices.filter((s): s is string => typeof s === 'string').map(normalizeSlice) : [] };
-    } catch {
+      const arch = JSON.parse(raw)?.architecture;
+      const slices = arch?.compositionSlices;
+      const { layout, errors } = parseCustomLayout(arch);
+      return { compositionSlices: Array.isArray(slices) ? slices.filter((s): s is string => typeof s === 'string').map(normalizeSlice) : [], custom: layout, errors };
+    } catch (error: any) {
       // A broken config must not hide violations: audit with the strict defaults.
-      return { compositionSlices: [] };
+      return { compositionSlices: [], errors: [`hexacore.json is not valid JSON: ${error.message}`] };
     }
   }
 

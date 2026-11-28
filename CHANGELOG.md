@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.0] - 2026-11-27
+
+### Added
+
+- **Your own slice layout for `check_architecture`** (ADR 4): `hexacore.json` `architecture.layout` (path patterns with `{slice}`/`{layer}`), `namespaces` (C# `using` resolution), `layers` (`public`, `dependsOn`), `ignore` and `maxFileLines`. Projects that already use vertical slices with their own convention get audited with their rules. An invalid config is reported in `configErrors` and the default rules apply; the report says which `layout` was used.
+- **Watch mode dispatches the qa agent** (ADR 3): `hexacore watch --dispatch qa` hands checks that just broke to the qa role through a handoff and opens `claude --agent hexacore-qa` in a new pane (`--launcher wt|tmux|print` or a command template; detected from the terminal). Guardrails: `--maxAgents` (1), one agent per failing check, nothing while a check stays red, `--cooldown` (10m), a check whose agent timed out waits until it passes once, and at most 5 agents per watch session.
+
+### Fixed
+
+- Reading a project no longer writes to it: `resume_session` (and `hexacore state`) created `.hexagen/state.json` in projects that had none, and rewrote it on every call. It now writes only when the project already has state and its stacks changed.
+- Test files by name (`*.spec.ts`, `*Tests.cs`, `_test.go`…) are exempt from the line limit wherever they live.
+- `hexacore activity` showed skipped checks with ✗ as if they had failed; they now show –.
+
 ## [3.6.0] - 2026-11-24
 
 ### Added

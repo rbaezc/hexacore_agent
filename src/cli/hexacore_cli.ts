@@ -49,6 +49,7 @@ const USAGE = `Usage: hexacore <command> [args] [--workspace <dir>]
   promote <name> <target> [--version n] [--overwrite]    Copy a prototype into the project
   preview [--port p] [--open]             Serve .hexagen/prototypes on 127.0.0.1 until Ctrl+C
   watch [--checks typecheck,test] [--notify console,desktop,voice] [--lang es|en] [--debounce ms]
+        [--dispatch qa] [--launcher wt|tmux|print|"<template>"] [--maxAgents 1] [--cooldown 10m]
                                           Re-run checks on save; alert when one breaks or is fixed
   listen [--lang es|en] [--mute] [--model base]   Voice commands: Enter to talk, Enter to stop (or type a command)
   voice setup [--model tiny|base|small|medium]    Check the microphone and whisper.cpp, download the model`;
