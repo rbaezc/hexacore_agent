@@ -69,7 +69,7 @@ describe('StateRepository across processes', () => {
       b.addFact({ key: `b${i}`, value: String(i), category: 'config' }),
     ]).flat();
     const results = await Promise.all(writes);
-    expect(results.every((r) => r.isSuccess)).toBe(true);
+    expect(results.filter((r) => r.isFailure).map((r: any) => r.error.message)).toEqual([]);
 
     const final = await a.loadState();
     expect(final.isSuccess && final.value.facts.length).toBe(40);
