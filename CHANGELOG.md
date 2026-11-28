@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.7.0] - 2026-11-27
 
 ### Added
 
@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reading a project no longer writes to it: `resume_session` (and `hexacore state`) created `.hexagen/state.json` in projects that had none, and rewrote it on every call. It now writes only when the project already has state and its stacks changed.
 - Test files by name (`*.spec.ts`, `*Tests.cs`, `_test.go`…) are exempt from the line limit wherever they live.
+- `hexacore activity` showed skipped checks with ✗ as if they had failed; they now show –.
 
 ## [3.6.0] - 2026-11-24
 
